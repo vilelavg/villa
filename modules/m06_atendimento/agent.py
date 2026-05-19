@@ -3,6 +3,18 @@ Villa — Módulo M06: Atendimento WhatsApp
 Atendimento completo via WhatsApp para clientes já qualificados.
 Substitui o GPT Maker atual. Memória de conversa, nutrição com conteúdo,
 FAQ por especialidade, handoff inteligente.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  STAND_BY — Decisão reunião Caio+Thaís (19/05/2026)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Motivo: Atendimento automatizado por WhatsApp é arriscado.
+A Mari (SDR) faz o primeiro contato manual hoje. O Villa
+vai APRENDER com as interações dela (via M14) enquanto
+este módulo está paused.
+
+Quando reativado: será direcionado para CLÍNICAS atendendo
+pacientes — não WebXP atendendo seus próprios clientes.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 from datetime import datetime
@@ -68,8 +80,10 @@ class M06Atendimento(BaseModule):
         "FAQ, nutrição, suporte pós-venda, com handoff inteligente."
     )
 
+    # ── STAND_BY (ver docstring do módulo) ──
+    STAND_BY = True
+
     KEYWORDS = [
-        "atendimento", "atender", "responder",
         "suporte", "dúvida", "duvida",
         "cliente", "paciente",
         "pós-venda", "pos-venda",
@@ -78,6 +92,8 @@ class M06Atendimento(BaseModule):
     ]
 
     async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+        if self.STAND_BY:
+            return 0.0
         if context and context.get("event_type") == "whatsapp_message":
             # Se o lead já está qualificado, M06 tem prioridade sobre M03
             payload = context.get("payload", {})
@@ -98,8 +114,17 @@ class M06Atendimento(BaseModule):
         client_slug: Optional[str] = None,
         context: Optional[dict] = None,
     ) -> dict:
+        if self.STAND_BY:
+            return {
+                "success": False,
+                "message": (
+                    "⏸️ M06 Atendimento está em STAND_BY (reunião Caio+Thaís, 19/05/2026). "
+                    "A Mari faz o atendimento manual. O Villa aprende com ela via M14. "
+                    "Será reativado para clínicas — não para a WebXP diretamente."
+                ),
+                "actions_taken": ["stand_by_blocked"],
+            }
         context = context or {}
-        payload = context.get("payload", {})
 
         if context.get("event_type") == "whatsapp_message":
             return await self._handle_message(db, payload)

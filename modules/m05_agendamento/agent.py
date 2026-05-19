@@ -2,6 +2,18 @@
 Villa — Módulo M05: Agendamento Automático
 Integra Google Calendar + Kommo + WhatsApp para agendar consultas.
 Verifica disponibilidade, oferece horários, confirma e lembra D-1.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  STAND_BY — Decisão reunião Caio+Thaís (19/05/2026)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Motivo: Depende de WhatsApp para envio de horários e
+confirmações. Paused junto com M03 e M06 até que haja
+segurança de operação sem risco à BM da Thaís.
+
+Integração com Google Calendar permanece disponível
+para uso manual. Apenas os envios por WhatsApp estão
+bloqueados.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 from datetime import datetime, timedelta
@@ -60,8 +72,10 @@ class M05Agendamento(BaseModule):
         "Verifica disponibilidade, oferece horários, confirma e envia lembrete D-1."
     )
 
+    # ── STAND_BY (ver docstring do módulo) ──
+    STAND_BY = True
+
     KEYWORDS = [
-        "agendar", "agendamento", "agenda",
         "consulta", "consultas",
         "horário", "horario", "horários",
         "marcar", "remarcar", "cancelar",
@@ -70,6 +84,8 @@ class M05Agendamento(BaseModule):
     ]
 
     async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+        if self.STAND_BY:
+            return 0.0
         msg_lower = message.lower()
         if context and "agendamento" in context.get("event_type", ""):
             return 0.9
@@ -86,6 +102,15 @@ class M05Agendamento(BaseModule):
         client_slug: Optional[str] = None,
         context: Optional[dict] = None,
     ) -> dict:
+        if self.STAND_BY:
+            return {
+                "success": False,
+                "message": (
+                    "⏸️ M05 Agendamento está em STAND_BY (reunião Caio+Thaís, 19/05/2026). "
+                    "Envio por WhatsApp pausado. Google Calendar continua disponível para uso manual."
+                ),
+                "actions_taken": ["stand_by_blocked"],
+            }
         feedback_loop = FeedbackLoop(db)
         context = context or {}
 

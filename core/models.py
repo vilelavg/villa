@@ -79,6 +79,9 @@ class ModuleCode(str, PyEnum):
     M11_HIPOTESES = "m11_hipoteses"
     M12_ALERTAS = "m12_alertas"
     M13_CONHECIMENTO = "m13_conhecimento"
+    # ── Adicionados pós-reunião Caio+Thaís (19/05/2026) ──
+    M14_SUPORTE_MARI = "m14_suporte_mari"   # SDR assistant: monitoramento + sugestões em tempo real
+    M15_MONITOR_SMOOTH = "m15_monitor_smooth"  # Inteligência da comunidade Smooth (modo silencioso)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -536,6 +539,198 @@ class Alert(Base):
     __table_args__ = (
         Index("ix_alerts_client_type", "client_id", "alert_type"),
         Index("ix_alerts_created", "created_at"),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# M14 — SUPORTE MARI (SDR ASSISTANT)
+# ═══════════════════════════════════════════════════════════════
+
+class SDRConversation(Base):
+    """
+    Conversa da Mari com um lead.
+    O Villa monitora, extrai padrões e sugere respostas.
+    Alimentado por: importação manual, webhook ou paste direto.
+    """
+    __tablename__ = "sdr_conversations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
+
+    # Identificação do lead e contexto
+    lead_name: Mapped[Optional[str]] = mapped_column(String(200))
+    course_name: Mapped[Optional[str]] = mapped_column(String(300))   # Curso sobre o qual a conversa é
+    lead_source: Mapped[Optional[str]] = mapped_column(String(100))   # "instagram", "whatsapp", "email"
+
+    # Conversa em formato estruturado
+    messages: Mapped[list] = mapped_column(JSONB, default=list)       # [{role, content, timestamp}]
+    raw_text: Mapped[Optional[str]] = mapped_column(Text)             # Texto bruto colado pela Mari
+
+    # Resultado da conversa
+    outcome: Mapped[Optional[str]] = mapped_column(String(50))        # "won" | "lost" | "pending" | "no_show"
+    main_objection: Mapped[Optional[str]] = mapped_column(String(500))
+
+    # Análise do Villa
+    objections_extracted: Mapped[Optional[list]] = mapped_column(JSONB)   # Objeções identificadas
+    patterns_extracted: Mapped[Optional[dict]] = mapped_column(JSONB)     # Padrões comportamentais
+    analyzed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_sdr_conv_client", "client_id"),
+        Index("ix_sdr_conv_course", "course_name"),
+        Index("ix_sdr_conv_outcome", "outcome"),
+    )
+
+
+class SDRObjection(Base):
+    """
+    Objeção mapeada com suas melhores respostas validadas.
+    Construída pelo Villa a partir das conversas da Mari.
+    """
+    __tablename__ = "sdr_objections"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
+
+    # Classificação
+    course_name: Mapped[Optional[str]] = mapped_column(String(300))   # Curso ao qual a objeção pertence (None = geral)
+    category: Mapped[str] = mapped_column(String(100), nullable=False) # "preco" | "tempo" | "credibilidade" | "tecnica" | "urgencia"
+    objection_text: Mapped[str] = mapped_column(Text, nullable=False)  # Objeção canônica
+
+    # Variações identificadas
+    variations: Mapped[Optional[list]] = mapped_column(JSONB)          # Formas diferentes de dizer a mesma coisa
+
+    # Respostas
+    best_responses: Mapped[Optional[list]] = mapped_column(JSONB)      # [{text, won_rate, times_used}]
+    response_in_progress: Mapped[Optional[str]] = mapped_column(Text)  # Resposta ainda sendo validada
+
+    # Estatísticas
+    frequency: Mapped[int] = mapped_column(Integer, default=1)         # Quantas vezes apareceu
+    won_with_this_objection: Mapped[int] = mapped_column(Integer, default=0)
+    lost_with_this_objection: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        Index("ix_sdr_obj_client_category", "client_id", "category"),
+        Index("ix_sdr_obj_course", "course_name"),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════
+# M15 — MONITOR SMOOTH (INTELIGÊNCIA DE COMUNIDADE)
+# ═══════════════════════════════════════════════════════════════
+
+class SmoothMessage(Base):
+    """
+    Mensagem capturada do grupo WhatsApp da comunidade Smooth.
+    O Villa lê, armazena e analisa — nunca responde.
+    """
+    __tablename__ = "smooth_messages"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+
+    # Origem
+    member_phone: Mapped[Optional[str]] = mapped_column(String(30))
+    member_name: Mapped[Optional[str]] = mapped_column(String(200))
+    group_name: Mapped[Optional[str]] = mapped_column(String(200), default="Smooth Dentistry")
+    message_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    # Conteúdo
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    media_type: Mapped[Optional[str]] = mapped_column(String(30))     # "text" | "audio" | "image" | "video"
+    is_reply: Mapped[bool] = mapped_column(Boolean, default=False)
+    reply_to_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False))
+
+    # Classificação do Villa
+    category: Mapped[Optional[str]] = mapped_column(String(100))      # "dor" | "duvida" | "elogio" | "networking" | "conteudo"
+    sentiment: Mapped[Optional[str]] = mapped_column(String(20))       # "positive" | "negative" | "neutral"
+    topics: Mapped[Optional[list]] = mapped_column(JSONB)              # Tópicos identificados
+    pain_points: Mapped[Optional[list]] = mapped_column(JSONB)         # Dores identificadas
+    analyzed: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_smooth_msg_member", "member_phone"),
+        Index("ix_smooth_msg_timestamp", "message_timestamp"),
+        Index("ix_smooth_msg_category", "category"),
+    )
+
+
+class SmoothMember(Base):
+    """
+    Perfil de membro da comunidade Smooth construído pelo Villa.
+    Atualizado a cada mensagem processada.
+    """
+    __tablename__ = "smooth_members"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+
+    phone: Mapped[Optional[str]] = mapped_column(String(30), unique=True)
+    name: Mapped[Optional[str]] = mapped_column(String(200))
+    inferred_specialty: Mapped[Optional[str]] = mapped_column(String(200))  # Especialidade inferida
+
+    # Atividade
+    message_count: Mapped[int] = mapped_column(Integer, default=0)
+    first_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    engagement_score: Mapped[float] = mapped_column(Float, default=0.0)     # 0–100
+
+    # Perfil inferido
+    main_topics: Mapped[Optional[list]] = mapped_column(JSONB)              # Temas que mais fala
+    main_pain_points: Mapped[Optional[list]] = mapped_column(JSONB)         # Dores mais frequentes
+    content_preferences: Mapped[Optional[dict]] = mapped_column(JSONB)      # Tipo de conteúdo que mais engaja
+
+    # Flag para ações de marketing
+    is_high_value: Mapped[bool] = mapped_column(Boolean, default=False)     # Membro muito ativo
+    campaign_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_smooth_member_engagement", "engagement_score"),
+    )
+
+
+class SmoothInsight(Base):
+    """
+    Insight consolidado gerado pelo Villa a partir das mensagens do grupo.
+    Alimenta decisões de campanha e conteúdo.
+    """
+    __tablename__ = "smooth_insights"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+
+    # Período analisado
+    period_start: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    period_end: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    messages_analyzed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Resultados
+    insight_type: Mapped[str] = mapped_column(String(100), nullable=False)   # "weekly_summary" | "pain_trends" | "member_activity"
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    data: Mapped[Optional[dict]] = mapped_column(JSONB)                      # Dados estruturados do insight
+
+    # Top dados do período
+    top_topics: Mapped[Optional[list]] = mapped_column(JSONB)
+    top_pain_points: Mapped[Optional[list]] = mapped_column(JSONB)
+    top_members: Mapped[Optional[list]] = mapped_column(JSONB)
+
+    # Para uso em campanhas
+    campaign_recommendations: Mapped[Optional[list]] = mapped_column(JSONB)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_smooth_insight_type", "insight_type"),
+        Index("ix_smooth_insight_created", "created_at"),
     )
 
 

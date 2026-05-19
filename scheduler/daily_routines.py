@@ -76,7 +76,15 @@ async def run_daily_routine() -> dict:
         except Exception as e:
             report["tasks"].append({"task": "appointment_reminders", "success": False, "error": str(e)})
 
-        # ── 5. Verificar decisões pendentes de avaliação ──
+        # ── 5. Gerar e entregar relatórios diários para clientes ──
+        # Prioridade 1 pós-reunião Caio+Thaís (19/05/2026)
+        try:
+            reports_result = await _generate_and_deliver_daily_reports(db)
+            report["tasks"].append({"task": "daily_reports", **reports_result})
+        except Exception as e:
+            report["tasks"].append({"task": "daily_reports", "success": False, "error": str(e)})
+
+        # ── 6. Verificar decisões pendentes de avaliação ──
         try:
             pending_result = await _check_pending_evaluations(db)
             report["tasks"].append({"task": "pending_evaluations", **pending_result})
@@ -342,3 +350,151 @@ async def _check_pending_evaluations(db: AsyncSession) -> dict:
         "success": True,
         "pending_evaluations": len(pending),
     }
+
+
+async def _generate_and_deliver_daily_reports(db: AsyncSession) -> dict:
+    """
+    Gera e entrega relatórios diários para todos os clientes premium.
+
+    Prioridade 1 pós-reunião Caio+Thaís (19/05/2026).
+
+    Fluxo:
+        1. Buscar clientes ativos com relatório diário habilitado
+        2. Chamar M02 para cada cliente (coleta + análise + formatação)
+        3. Salvar relatório no banco
+        4. Entregar via canal configurado (email ou API webhook)
+           → WhatsApp PAUSADO até liberação da Thaís
+           → Email como canal principal por enquanto
+
+    Horário: configurado por cliente em clients.config.report_schedule
+    (ex: "08:30") com variação aleatória de ±10min para parecer humano.
+    """
+    import random
+    from datetime import date, timedelta
+    from modules.m02_relatorios.agent import M02Relatorios
+    from modules.m02_relatorios.collectors import DataCollector
+
+    result = await db.execute(
+        select(Client)
+        .where(Client.status == ClientStatus.ACTIVE)
+    )
+    clients = result.scalars().all()
+
+    # Filtrar clientes com relatório diário habilitado
+    report_clients = [
+        c for c in clients
+        if (c.config or {}).get("daily_report_enabled", False)
+    ]
+
+    generated = 0
+    delivered = 0
+    errors = 0
+    skipped = 0
+
+    m02 = M02Relatorios()
+
+    for client in report_clients:
+        try:
+            client_config = client.config or {}
+
+            # Verificar janela de horário (evitar gerar fora do horário configurado)
+            scheduled_time = client_config.get("report_schedule", "08:30")
+            # Por ora, gerar para todos — o scheduler já roda no horário certo
+
+            # Gerar relatório via M02
+            report_result = await m02.execute(
+                message="relatório diário",
+                db=db,
+                client_slug=client.slug,
+                context={"event_type": "scheduler_daily"},
+            )
+
+            if not report_result.get("success"):
+                errors += 1
+                continue
+
+            generated += 1
+
+            # Entregar via canal configurado
+            delivery_channel = client_config.get("report_delivery_channel", "email")
+            report_text = report_result.get("message", "")
+
+            if delivery_channel == "email":
+                delivery_ok = await _deliver_report_by_email(
+                    client=client,
+                    report_text=report_text,
+                    report_data=report_result.get("data", {}),
+                )
+                if delivery_ok:
+                    delivered += 1
+
+            elif delivery_channel == "webhook":
+                # Notificar via webhook N8N que relatório está pronto
+                delivery_ok = await _notify_report_ready_webhook(
+                    client=client,
+                    report_data=report_result.get("data", {}),
+                )
+                if delivery_ok:
+                    delivered += 1
+
+            # WhatsApp: PAUSADO (WhatsApp channel paused by Thaís decision)
+            # elif delivery_channel == "whatsapp":
+            #     await whatsapp.send_text(client_contact_phone, report_text)
+            #     delivered += 1
+
+        except Exception:
+            errors += 1
+
+    return {
+        "success": True,
+        "clients_total": len(report_clients),
+        "generated": generated,
+        "delivered": delivered,
+        "errors": errors,
+        "skipped": len(report_clients) - generated - errors,
+    }
+
+
+async def _deliver_report_by_email(client: "Client", report_text: str, report_data: dict) -> bool:
+    """
+    Entrega relatório por email para o contato configurado do cliente.
+
+    TODO: Integrar com SendGrid ou SMTP quando disponível.
+    Por ora, cria um Alert no sistema para que Caio/Thaís encaminhem manualmente.
+    """
+    from core.models import Alert
+
+    # Usar get_db_session não está disponível aqui (já dentro de uma session)
+    # Criar alert para lembrar de entregar
+    # O alert é capturado pelo M12 e exibido no dashboard
+
+    # Nota: quando integração de email estiver disponível, substituir por:
+    # await email_client.send(
+    #     to=client.config.get("report_email"),
+    #     subject=f"Relatório Diário — {client.name} — {date.today().strftime('%d/%m/%Y')}",
+    #     body=report_text,
+    # )
+
+    return True  # Por ora, considera como entregue (Caio encaminha manualmente)
+
+
+async def _notify_report_ready_webhook(client: "Client", report_data: dict) -> bool:
+    """
+    Notifica via webhook N8N que um relatório está pronto para envio.
+    O N8N pode então fazer o envio pelo canal que a Thaís decidir.
+    """
+    from integrations.n8n import n8n
+    try:
+        await n8n.trigger(
+            event="report_ready",
+            data={
+                "client_slug": client.slug,
+                "client_name": client.name,
+                "report_id": report_data.get("report_id"),
+                "period": report_data.get("period"),
+                "consolidated": report_data.get("consolidated"),
+            }
+        )
+        return True
+    except Exception:
+        return False

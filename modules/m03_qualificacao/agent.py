@@ -2,7 +2,22 @@
 Villa — Módulo M03: Qualificação Automática de Leads
 Prioridade 3 do MVP. Evolução do piloto que já roda no N8N do Caio.
 
-Fluxo:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  STAND_BY — Decisão reunião Caio+Thaís (19/05/2026)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Motivo: WhatsApp detecta e bana bots. A Thaís tem ~45-50
+contas de anúncio numa única BM — qualquer instabilidade
+derruba tudo. Ela passou 1 ano montando o tracking atual.
+
+O módulo aprenderá com as conversas da Mari (via M14)
+e será reativado quando houver segurança, direcionado
+para CLÍNICAS atendendo pacientes — não a WebXP.
+
+Para reativar: UPDATE module_configs SET is_active = true
+               WHERE module = 'm03_qualificacao';
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Fluxo original (quando ativo):
     1. Lead manda mensagem no WhatsApp (trigger do webhook)
     2. Villa identifica o lead e o cliente correspondente
     3. Consulta memória (scripts aprovados, objeções comuns)
@@ -46,6 +61,9 @@ class M03Qualificacao(BaseModule):
         "lead scoring automático e handoff inteligente para humano."
     )
 
+    # ── STAND_BY (ver docstring do módulo) ──
+    STAND_BY = True
+
     KEYWORDS = [
         "qualifica", "qualificar", "qualificação", "qualificacao",
         "lead", "leads",
@@ -64,7 +82,10 @@ class M03Qualificacao(BaseModule):
         self.scorer = LeadScorer()
 
     async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
-        """Retorna confiança de 0-1."""
+        """Retorna confiança de 0-1. Zero enquanto em STAND_BY."""
+        if self.STAND_BY:
+            return 0.0
+
         # Eventos de webhook têm prioridade máxima
         if context:
             event = context.get("event_type", "")
@@ -96,6 +117,16 @@ class M03Qualificacao(BaseModule):
             - Evento InLead → primeiro contato com lead novo
             - Comando manual → ações administrativas
         """
+        if self.STAND_BY:
+            return {
+                "success": False,
+                "message": (
+                    "⏸️ M03 Qualificação está em STAND_BY por decisão da reunião com Caio e Thaís (19/05/2026). "
+                    "WhatsApp outbound paused para proteger as contas de anúncio da BM. "
+                    "O módulo aprenderá com as conversas da Mari via M14 e será reativado quando seguro."
+                ),
+                "actions_taken": ["stand_by_blocked"],
+            }
         context = context or {}
         event_type = context.get("event_type", "")
         payload = context.get("payload", {})
