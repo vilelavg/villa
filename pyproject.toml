@@ -1,0 +1,31 @@
+[project]
+name = "villa"
+version = "0.1.0"
+description = "Villa — Agente SaaS multi-modular para a WebXP Agency"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "Proprietary — WebXP / Vitor Vilela"}
+authors = [
+    {name = "Vitor Vilela", email = "contato@seudominio.com.br"},
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "modules", "integrations", "memory", "scheduler", "security", "api"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.alembic]
+script_location = "db/migrations"

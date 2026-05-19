@@ -1,0 +1,52 @@
+# ═══════════════════════════════════════════════════════════════
+# VILLA — .gitignore
+# ═══════════════════════════════════════════════════════════════
+
+# ── Credenciais (NUNCA comitar) ──
+.env
+*.pem
+*.key
+config/google_service_account.json
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Ambientes virtuais ──
+venv/
+.venv/
+env/
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Docker volumes (dados locais) ──
+data/
+
+# ── Logs ──
+logs/
+*.log
+
+# ── Testes ──
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ── Alembic ──
+db/migrations/versions/__pycache__/
+
+# ── Backups locais ──
+backups/
+*.sql.gz
+*.dump
