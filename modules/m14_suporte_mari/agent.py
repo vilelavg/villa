@@ -168,10 +168,15 @@ class M14SuporteMari(BaseModule):
     ]
 
     MODE_KEYWORDS = {
-        "suggest": ["sugestão", "sugere", "como responder", "o que falar", "lead disse", "resposta para"],
+        "suggest": ["sugestão", "sugestao", "sugere", "como responder", "o que falar", "lead disse", "resposta para"],
         "ingest": ["conversa", "importar", "registrar conversa", "cole aqui"],
         "analyze": ["analisar conversas", "processar", "atualizar banco"],
-        "report": ["relatório sdr", "relatório de objeções", "banco de objeções"],
+        "report": [
+            "relatório sdr", "relatorio sdr",
+            "relatório de objeções", "relatorio de objecoes",
+            "banco de objeções", "banco de objecoes",
+            "relatório de objeção", "relatorio de objecao",
+        ],
     }
 
     async def can_handle(self, message: str, context: Optional[dict] = None) -> float:

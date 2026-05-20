@@ -92,8 +92,6 @@ class M06Atendimento(BaseModule):
     ]
 
     async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
-        if self.STAND_BY:
-            return 0.0
         if context and context.get("event_type") == "whatsapp_message":
             # Se o lead já está qualificado, M06 tem prioridade sobre M03
             payload = context.get("payload", {})

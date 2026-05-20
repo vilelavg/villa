@@ -83,9 +83,6 @@ class M03Qualificacao(BaseModule):
 
     async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
         """Retorna confiança de 0-1. Zero enquanto em STAND_BY."""
-        if self.STAND_BY:
-            return 0.0
-
         # Eventos de webhook têm prioridade máxima
         if context:
             event = context.get("event_type", "")
