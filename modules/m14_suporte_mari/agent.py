@@ -442,7 +442,7 @@ class M14SuporteMari(BaseModule):
             db=db,
             system_override=SYSTEM_ANALYZE,
             client_slug=client_slug,
-            model="secondary",  # Haiku — tarefa de extração, não precisa do modelo principal
+            model="fast",  # Haiku — tarefa de extração, não precisa do modelo principal
         )
 
         raw = response["text"].strip()

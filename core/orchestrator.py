@@ -458,6 +458,12 @@ def setup_orchestrator() -> Orchestrator:
     from modules.m12_alertas.agent import M12Alertas
     orchestrator.register_module(M12Alertas())
 
+    from modules.m14_suporte_mari.agent import M14SuporteMari
+    orchestrator.register_module(M14SuporteMari())
+
+    from modules.m15_monitor_smooth.agent import M15MonitorSmooth
+    orchestrator.register_module(M15MonitorSmooth())
+
     # ── Registrar event routes ──
     orchestrator.register_event_route("inlead_new_lead", [
         ModuleCode.M03_QUALIFICACAO,
@@ -481,6 +487,16 @@ def setup_orchestrator() -> Orchestrator:
     orchestrator.register_event_route("scheduler_weekly", [
         ModuleCode.M02_RELATORIOS,
         ModuleCode.M07_RETROALIMENTACAO,
+    ])
+
+    orchestrator.register_event_route("smooth_group_message", [
+        ModuleCode.M15_MONITOR_SMOOTH,
+    ])
+    orchestrator.register_event_route("scheduler_weekly_sdr_analyze", [
+        ModuleCode.M14_SUPORTE_MARI,
+    ])
+    orchestrator.register_event_route("scheduler_weekly_smooth_insights", [
+        ModuleCode.M15_MONITOR_SMOOTH,
     ])
 
     return orchestrator

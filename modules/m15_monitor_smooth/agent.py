@@ -456,7 +456,7 @@ class M15MonitorSmooth(BaseModule):
             ),
             db=db,
             system_override=SYSTEM_CLASSIFY,
-            model="secondary",  # Haiku — classificação simples
+            model="fast",  # Haiku — classificação simples
         )
         raw = response["text"].strip()
         if raw.startswith("```"):

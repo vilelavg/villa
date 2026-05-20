@@ -96,7 +96,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(Enum(UserRole, values_callable=lambda x: [e.value for e in x]), nullable=False, default=UserRole.READONLY)
+    role: Mapped[str] = mapped_column(Enum(UserRole, values_callable=lambda x: [e.value for e in x], name='user_role'), nullable=False, default=UserRole.READONLY)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -112,7 +112,7 @@ class Client(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    status: Mapped[str] = mapped_column(Enum(ClientStatus), default=ClientStatus.ACTIVE)
+    status: Mapped[str] = mapped_column(Enum(ClientStatus, values_callable=lambda x: [e.value for e in x], name='client_status'), default=ClientStatus.ACTIVE)
 
     # Dados do cliente
     specialty: Mapped[Optional[str]] = mapped_column(String(200))        # Ex: implantes, lentes, ortodontia
@@ -152,7 +152,7 @@ class Lead(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     client_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"), nullable=False)
-    status: Mapped[str] = mapped_column(Enum(LeadStatus), default=LeadStatus.NEW)
+    status: Mapped[str] = mapped_column(Enum(LeadStatus, values_callable=lambda x: [e.value for e in x], name='lead_status'), default=LeadStatus.NEW)
 
     # Dados do lead
     name: Mapped[Optional[str]] = mapped_column(String(200))
@@ -204,7 +204,7 @@ class Conversation(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     lead_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("leads.id"), nullable=False)
-    module: Mapped[str] = mapped_column(Enum(ModuleCode), nullable=False)
+    module: Mapped[str] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'), nullable=False)
 
     # Mensagens (array de objetos {role, content, timestamp})
     messages: Mapped[list] = mapped_column(JSONB, default=list)
@@ -228,7 +228,7 @@ class Roteiro(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     client_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"), nullable=False)
-    status: Mapped[str] = mapped_column(Enum(RoteiroStatus), default=RoteiroStatus.DRAFT)
+    status: Mapped[str] = mapped_column(Enum(RoteiroStatus, values_callable=lambda x: [e.value for e in x], name='roteiro_status'), default=RoteiroStatus.DRAFT)
 
     # Conteúdo
     title: Mapped[str] = mapped_column(String(300), nullable=False)
@@ -370,7 +370,7 @@ class DecisionLog(Base):
     __tablename__ = "decision_logs"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    module: Mapped[str] = mapped_column(Enum(ModuleCode), nullable=False)
+    module: Mapped[str] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'), nullable=False)
     client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
 
     # O que o Villa decidiu
@@ -406,11 +406,11 @@ class AuditLog(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"))
-    module: Mapped[Optional[str]] = mapped_column(Enum(ModuleCode))
+    module: Mapped[Optional[str]] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'))
 
     # Ação
     action: Mapped[str] = mapped_column(String(200), nullable=False)
-    risk_level: Mapped[str] = mapped_column(Enum(ActionRisk), default=ActionRisk.LOW)
+    risk_level: Mapped[str] = mapped_column(Enum(ActionRisk, values_callable=lambda x: [e.value for e in x], name='action_risk'), default=ActionRisk.LOW)
     resource_type: Mapped[Optional[str]] = mapped_column(String(50))     # lead | campaign | roteiro | report
     resource_id: Mapped[Optional[str]] = mapped_column(String(100))
 
@@ -486,7 +486,7 @@ class ModuleConfig(Base):
     __tablename__ = "module_configs"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    module: Mapped[str] = mapped_column(Enum(ModuleCode), unique=True, nullable=False)
+    module: Mapped[str] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'), unique=True, nullable=False)
 
     # Estado
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -511,7 +511,7 @@ class Alert(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
-    module: Mapped[str] = mapped_column(Enum(ModuleCode), nullable=False)
+    module: Mapped[str] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'), nullable=False)
 
     # Alerta
     alert_type: Mapped[str] = mapped_column(String(100), nullable=False)  # cpl_high | frequency_high | show_rate_low
