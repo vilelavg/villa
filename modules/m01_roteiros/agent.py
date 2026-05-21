@@ -317,28 +317,33 @@ class M01Roteiros(BaseModule):
         """Extrai gancho, corpo, CTA e roteiro completo do texto gerado."""
         result = {"title": "", "hook": "", "body": "", "cta": "", "full_script": ""}
 
+        # Limpar markdown bold (**texto**) antes de parsear
+        clean_text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+
         # Título
-        title_match = re.search(r"TÍTULO:\s*(.+?)(?:\n|$)", text)
+        title_match = re.search(r"TÍTULO[^:]*:\s*(.+?)(?:\n|$)", clean_text)
+        if not title_match:
+            title_match = re.search(r"TITLE[^:]*:\s*(.+?)(?:\n|$)", clean_text, re.IGNORECASE)
         if title_match:
             result["title"] = title_match.group(1).strip()
 
         # Gancho
         hook_match = re.search(
-            r"GANCHO[^:]*:\s*\n(.+?)(?=\nCORPO|\nBODY)", text, re.DOTALL
+            r"GANCHO[^:]*:\s*\n(.+?)(?=\nCORPO|\nBODY|\nCTA|\Z)", clean_text, re.DOTALL
         )
         if hook_match:
             result["hook"] = hook_match.group(1).strip()
 
         # Corpo
         body_match = re.search(
-            r"CORPO[^:]*:\s*\n(.+?)(?=\nCTA|\nCHAMADA)", text, re.DOTALL
+            r"CORPO[^:]*:\s*\n(.+?)(?=\nCTA|\nCHAMADA|\Z)", clean_text, re.DOTALL
         )
         if body_match:
             result["body"] = body_match.group(1).strip()
 
         # CTA
         cta_match = re.search(
-            r"(?:CTA|CHAMADA PARA AÇÃO)[^:]*:\s*\n(.+?)(?=\nROTEIRO COMPLETO|$)", text, re.DOTALL
+            r"(?:CTA|CHAMADA PARA AÇÃO)[^:]*:\s*\n(.+?)(?=\nROTEIRO COMPLETO|\Z)", clean_text, re.DOTALL
         )
         if cta_match:
             result["cta"] = cta_match.group(1).strip()

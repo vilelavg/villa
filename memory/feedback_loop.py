@@ -195,12 +195,15 @@ class FeedbackLoop:
         # ── 6. Base de conhecimento (RAG) ──
         if include_knowledge and knowledge_query:
             try:
-                kb = KnowledgeBaseService(self.db)
-                kb_results = await kb.search(knowledge_query, limit=3, client_slug=client_slug)
-                if kb_results:
-                    block = self._format_knowledge_block(kb_results)
-                    sections.append(block)
-                    sources.append("knowledge_base")
+                # begin_nested cria um SAVEPOINT — se a query pgvector falhar,
+                # apenas o savepoint é revertido, a transação principal continua.
+                async with self.db.begin_nested():
+                    kb = KnowledgeBaseService(self.db)
+                    kb_results = await kb.search(knowledge_query, limit=3, client_slug=client_slug)
+                    if kb_results:
+                        block = self._format_knowledge_block(kb_results)
+                        sections.append(block)
+                        sources.append("knowledge_base")
             except Exception:
                 pass  # RAG é opcional — não quebra o fluxo
 

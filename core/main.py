@@ -20,6 +20,7 @@ from api.routes.health import router as health_router
 from api.routes.webhooks import router as webhooks_router
 from api.routes.commands import router as commands_router
 from api.routes.reports import router as reports_router
+from api.routes.clients import router as clients_router
 
 
 # ── Variável global de uptime ──
@@ -125,6 +126,7 @@ app.include_router(health_router, tags=["Health"])
 app.include_router(webhooks_router, prefix="/webhook", tags=["Webhooks"])
 app.include_router(commands_router, prefix="/command", tags=["Commands"])
 app.include_router(reports_router, prefix="/reports", tags=["Reports"])
+app.include_router(clients_router, prefix="/clients", tags=["Clients"])
 
 
 # ── Rota raiz ──

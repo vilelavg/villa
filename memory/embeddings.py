@@ -197,6 +197,9 @@ class EmbeddingService:
         # Busca via pgvector (operador <=> para distância coseno)
         # Distância coseno: 0 = idêntico, 2 = oposto
         # Similaridade = 1 - distância
+        # Converter vetor para string no formato pgvector: '[0.1, 0.2, ...]'
+        query_vec_str = "[" + ",".join(str(v) for v in query_vector) + "]"
+
         sql = """
             SELECT 
                 ke.id,
@@ -207,14 +210,14 @@ class EmbeddingService:
                 kd.doc_type,
                 kd.client_id,
                 kd.source,
-                1 - (ke.embedding <=> :query_vec) AS similarity
+                1 - (ke.embedding <=> CAST(:query_vec AS vector)) AS similarity
             FROM knowledge_embeddings ke
             JOIN knowledge_documents kd ON ke.document_id = kd.id
-            WHERE 1 - (ke.embedding <=> :query_vec) > :threshold
+            WHERE 1 - (ke.embedding <=> CAST(:query_vec AS vector)) > :threshold
         """
 
         params = {
-            "query_vec": str(query_vector),
+            "query_vec": query_vec_str,
             "threshold": similarity_threshold,
         }
 

@@ -16,6 +16,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import Client, Lead, LeadStatus, Campaign, Appointment
+from core.config import settings
 from integrations.meta_ads import meta_ads
 from integrations.google_ads import google_ads
 from integrations.kommo import kommo
@@ -95,6 +96,11 @@ class DataCollector:
         self, ad_account_id: str, start: date, end: date
     ) -> dict:
         """Coleta métricas do Meta Ads."""
+        # Meta Ads pausado por decisão da reunião Caio+Thaís (19/05/2026)
+        # Token não configurado ou integração pausada → retorna vazio silenciosamente
+        if not getattr(settings, 'meta_access_token', '') or settings.meta_access_token in ('', 'TROCAR_AQUI'):
+            return {"status": "paused", "reason": "Meta Ads pausado — decisão reunião 19/05/2026"}
+
         insights = await meta_ads.get_campaign_insights(ad_account_id, start, end)
 
         total_spend = 0
@@ -146,6 +152,12 @@ class DataCollector:
 
     async def _collect_kommo(self, pipeline_id: int) -> dict:
         """Coleta dados do Kommo CRM (leads por etapa)."""
+        # Verificar se Kommo está configurado antes de chamar
+        if not getattr(settings, 'kommo_api_token', '') or settings.kommo_api_token in ('', 'TROCAR_AQUI'):
+            return {"status": "not_configured", "reason": "KOMMO_API_TOKEN não configurado"}
+        if not getattr(settings, 'kommo_account_url', '') or settings.kommo_account_url in ('', 'TROCAR_AQUI'):
+            return {"status": "not_configured", "reason": "KOMMO_ACCOUNT_URL não configurado"}
+
         leads = await kommo.get_leads(pipeline_id=pipeline_id, limit=200)
 
         by_status = {}
