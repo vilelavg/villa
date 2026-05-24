@@ -5,6 +5,7 @@ Integra com os monitores contínuos do scheduler.
 CPL, frequência, show rate, SLA, budget, saúde dos módulos.
 """
 
+import logging
 from datetime import datetime
 
 from sqlalchemy import select
@@ -13,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.models import Alert, Client, ModuleCode, User
 from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 ALERT_ANALYSIS_PROMPT = """Analise estes alertas e gere um resumo executivo:
 
@@ -123,34 +126,50 @@ class M12Alertas(BaseModule):
             )
 
         # Análise via Claude
-        response = await self.ask_claude(
-            message=ALERT_ANALYSIS_PROMPT.format(
-                alerts_data=str(alerts_data)[:3000],
-            ),
-            db=db,
-        )
+        try:
+            response = await self.ask_claude(
+                message=ALERT_ANALYSIS_PROMPT.format(
+                    alerts_data=str(alerts_data)[:3000],
+                ),
+                db=db,
+            )
 
-        parsed = await self.claude.extract_json(message=response["text"], model="fast")
-        analysis = parsed.get("data", {})
+            parsed = await self.claude.extract_json(message=response["text"], model="fast")
+            analysis = parsed.get("data", {})
 
-        # Montar resposta
-        lines = [f"🚨 **{len(alerts)} alertas ativos**\n"]
-        if analysis.get("executive_summary"):
-            lines.append(f"_{analysis['executive_summary']}_\n")
+            # Montar resposta
+            lines = [f"🚨 **{len(alerts)} alertas ativos**\n"]
+            if analysis.get("executive_summary"):
+                lines.append(f"_{analysis['executive_summary']}_\n")
 
-        for a in alerts_data[:10]:
-            lines.append(f"{a['icon']} **{a['title']}**")
-            lines.append(f"  {a['message'][:150]}")
-            if a.get("suggested_action"):
-                lines.append(f"  💡 {a['suggested_action'][:100]}")
-            lines.append("")
+            for a in alerts_data[:10]:
+                lines.append(f"{a['icon']} **{a['title']}**")
+                lines.append(f"  {a['message'][:150]}")
+                if a.get("suggested_action"):
+                    lines.append(f"  💡 {a['suggested_action'][:100]}")
+                lines.append("")
 
-        return {
-            "success": True,
-            "message": "\n".join(lines),
-            "data": {"total_alerts": len(alerts), "analysis": analysis},
-            "actions_taken": ["alerts_displayed"],
-        }
+            return {
+                "success": True,
+                "message": "\n".join(lines),
+                "data": {"total_alerts": len(alerts), "analysis": analysis},
+                "actions_taken": ["alerts_displayed"],
+            }
+
+        except Exception as e:
+            logger.exception("[M12] Erro ao analisar alertas via Claude: %s", e)
+            # Degradação graciosa: retorna os alertas sem análise do Claude
+            lines = [f"🚨 **{len(alerts)} alertas ativos** (análise indisponível)\n"]
+            for a in alerts_data[:10]:
+                lines.append(f"{a['icon']} **{a['title']}**")
+                lines.append(f"  {a['message'][:150]}")
+                lines.append("")
+            return {
+                "success": True,
+                "message": "\n".join(lines),
+                "data": {"total_alerts": len(alerts), "analysis": {}},
+                "actions_taken": ["alerts_displayed", "claude_error"],
+            }
 
     async def _process_pending_alerts(self, db: AsyncSession) -> dict:
         """Processa alertas não enviados e dispara notificações WhatsApp."""

@@ -35,6 +35,7 @@ Periodicamente (scheduler semanal):
 - Gera relatório semanal para Caio/Thaís
 """
 
+import logging
 from datetime import datetime
 from uuid import uuid4
 
@@ -50,6 +51,8 @@ from core.models import (
 )
 from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════
 # SYSTEM PROMPTS

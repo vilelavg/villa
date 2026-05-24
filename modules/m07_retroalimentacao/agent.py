@@ -4,6 +4,7 @@ Automatiza o loop de feedback entre SDR/comercial e time de marketing.
 Cruza dados de conversão com performance de campanhas.
 """
 
+import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import select
@@ -12,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.models import Client, Lead, LeadStatus, ModuleCode, User
 from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 ANALYSIS_PROMPT = """Analise o loop comercial ↔ marketing deste cliente:
 
@@ -127,43 +130,54 @@ class M07Retroalimentacao(BaseModule):
             module=self.code, action="retroalimentacao", client_slug=client.slug
         )
 
-        response = await self.ask_claude(
-            message=ANALYSIS_PROMPT.format(
-                client_name=client.name,
-                specialty=client.specialty or "odontologia",
-                total_leads=total,
-                qualified=qualified,
-                qual_rate=round(qualified / total * 100, 1) if total else 0,
-                scheduled=scheduled,
-                won=won,
-                avg_ticket=f"{avg_ticket:,.2f}",
-                lost=lost,
-                loss_reasons="\n".join(f"- {r}" for r in loss_reasons[:10]) or "nenhum registrado",
-                winning_campaigns=", ".join(set(winning_utms)) or "sem dados UTM",
-                losing_campaigns=", ".join(set(losing_utms)) or "sem dados UTM",
-                memory_context=memory["prompt_injection"],
-            ),
-            db=db,
-            client_slug=client.slug,
-        )
+        try:
+            response = await self.ask_claude(
+                message=ANALYSIS_PROMPT.format(
+                    client_name=client.name,
+                    specialty=client.specialty or "odontologia",
+                    total_leads=total,
+                    qualified=qualified,
+                    qual_rate=round(qualified / total * 100, 1) if total else 0,
+                    scheduled=scheduled,
+                    won=won,
+                    avg_ticket=f"{avg_ticket:,.2f}",
+                    lost=lost,
+                    loss_reasons="\n".join(f"- {r}" for r in loss_reasons[:10]) or "nenhum registrado",
+                    winning_campaigns=", ".join(set(winning_utms)) or "sem dados UTM",
+                    losing_campaigns=", ".join(set(losing_utms)) or "sem dados UTM",
+                    memory_context=memory["prompt_injection"],
+                ),
+                db=db,
+                client_slug=client.slug,
+            )
 
-        parsed = await self.claude.extract_json(message=response["text"], model="fast")
-        analysis = parsed.get("data", {})
+            parsed = await self.claude.extract_json(message=response["text"], model="fast")
+            analysis = parsed.get("data", {})
 
-        await feedback_loop.record_decision(
-            module=self.code,
-            action="retroalimentacao",
-            input_data={"client": client.slug, "total_leads": total, "won": won, "lost": lost},
-            output_data=analysis,
-            client_slug=client.slug,
-        )
+            await feedback_loop.record_decision(
+                module=self.code,
+                action="retroalimentacao",
+                input_data={"client": client.slug, "total_leads": total, "won": won, "lost": lost},
+                output_data=analysis,
+                client_slug=client.slug,
+            )
 
-        return {
-            "success": True,
-            "message": f"Retroalimentação {client.name}: {analysis.get('bottleneck', 'análise completa gerada')}",
-            "data": {"client": client.slug, "analysis": analysis},
-            "actions_taken": ["retroalimentacao_complete"],
-        }
+            return {
+                "success": True,
+                "message": f"Retroalimentação {client.name}: {analysis.get('bottleneck', 'análise completa gerada')}",
+                "data": {"client": client.slug, "analysis": analysis},
+                "actions_taken": ["retroalimentacao_complete"],
+            }
+
+        except Exception as e:
+            logger.exception("[M07] Erro em execute(): %s", e)
+            await self.increment_execution(db, success=False)
+            return {
+                "success": False,
+                "message": "Erro interno ao processar retroalimentação. Tente novamente.",
+                "actions_taken": ["error"],
+                "data": {"error": str(e)},
+            }
 
     async def _resolve_client(self, db, slug, message):
         if slug:

@@ -4,6 +4,7 @@ Analisa performance de Meta Ads + Google Ads, identifica anomalias,
 sugere otimizações baseadas em dados e feedback loop.
 """
 
+import logging
 from datetime import date, timedelta
 
 from sqlalchemy import select
@@ -14,6 +15,8 @@ from integrations.google_ads import google_ads
 from integrations.meta_ads import meta_ads
 from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 ANALYSIS_SYSTEM = """Você é o Villa, módulo de análise de campanhas da WebXP Agency.
 

@@ -8,12 +8,15 @@ Nota: Smooth Dentistry é operação independente da WebXP
 com 6 sócios. Este módulo depende da aprovação da governança.
 """
 
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import ModuleCode, User
 from memory.feedback_loop import FeedbackLoop
 from memory.knowledge_base import KnowledgeBaseService
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """Você é o Villa, módulo de suporte da comunidade Smooth Dentistry.
 
@@ -82,34 +85,44 @@ class M10Smooth(BaseModule):
         # Gerar resposta
         member_name = context.get("member_name", "membro")
 
-        response = await self.ask_claude(
-            message=FAQ_PROMPT.format(
-                member_name=member_name,
-                question=message,
-                knowledge_context=knowledge_text,
+        try:
+            response = await self.ask_claude(
+                message=FAQ_PROMPT.format(
+                    member_name=member_name,
+                    question=message,
+                    knowledge_context=knowledge_text,
             ),
-            db=db,
-            system_override=SYSTEM_PROMPT,
-        )
+                db=db,
+                system_override=SYSTEM_PROMPT,
+            )
 
-        reply = response["text"].strip()
-        should_transfer = "[TRANSFERIR_HUMANO]" in reply
-        clean_reply = reply.replace("[TRANSFERIR_HUMANO]", "").strip()
+            reply = response["text"].strip()
+            should_transfer = "[TRANSFERIR_HUMANO]" in reply
+            clean_reply = reply.replace("[TRANSFERIR_HUMANO]", "").strip()
 
-        await feedback_loop.record_decision(
-            module=self.code,
-            action="suporte_smooth",
-            input_data={"question": message[:200]},
-            output_data={
-                "reply": clean_reply[:200],
-                "kb_used": len(kb_results),
-                "transferred": should_transfer,
-            },
-        )
+            await feedback_loop.record_decision(
+                module=self.code,
+                action="suporte_smooth",
+                input_data={"question": message[:200]},
+                output_data={
+                    "reply": clean_reply[:200],
+                    "kb_used": len(kb_results),
+                    "transferred": should_transfer,
+                },
+            )
 
-        return {
-            "success": True,
-            "message": clean_reply,
-            "data": {"kb_results_used": len(kb_results), "transferred": should_transfer},
-            "actions_taken": ["smooth_support_response"],
-        }
+            return {
+                "success": True,
+                "message": clean_reply,
+                "data": {"kb_results_used": len(kb_results), "transferred": should_transfer},
+                "actions_taken": ["smooth_support_response"],
+            }
+        except Exception as e:
+            logger.exception("[M10] Erro em execute(): %s", e)
+            await self.increment_execution(db, success=False)
+            return {
+                "success": False,
+                "message": "Erro interno. Tente novamente em instantes.",
+                "actions_taken": ["error"],
+                "data": {"error": str(e)},
+            }

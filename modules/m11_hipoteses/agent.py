@@ -4,12 +4,15 @@ A partir de dados de performance do M4, sugere variações de
 gancho, copy e visual para novos criativos com teste A/B.
 """
 
+import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import Campaign, Client, ModuleCode, Roteiro, RoteiroStatus, User
 from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 HYPOTHESIS_PROMPT = """Gere hipóteses de criativos baseadas nos dados de performance:
 
@@ -133,64 +136,75 @@ class M11Hipoteses(BaseModule):
                 f"Média de score dos top performers: {sum(t.get('score', 0) for t in top_performers) / len(top_performers):.1f}"
             )
 
-        # Memória
-        memory = await feedback_loop.build_context(
-            module=self.code,
-            action="gerar_hipoteses",
-            client_slug=client.slug,
-        )
+        try:
+            # Memória
+            memory = await feedback_loop.build_context(
+                module=self.code,
+                action="gerar_hipoteses",
+                client_slug=client.slug,
+            )
 
-        response = await self.ask_claude(
-            message=HYPOTHESIS_PROMPT.format(
-                client_name=client.name,
-                specialty=client.specialty or "odontologia",
-                top_performers=str(top_performers[:5])[:1500],
-                low_performers=str(low_performers[:3])[:800],
-                approved_roteiros=str(
-                    [
-                        {"hook": r.hook[:80], "feedback": r.human_feedback or ""}
-                        for r in roteiros[:5]
-                    ]
-                )[:1000],
-                patterns="\n".join(f"- {p}" for p in patterns)
-                or "Sem padrões identificados ainda (dados insuficientes)",
-                count=5,
-                memory_context=memory["prompt_injection"],
-            ),
-            db=db,
-            client_slug=client.slug,
-        )
+            response = await self.ask_claude(
+                message=HYPOTHESIS_PROMPT.format(
+                    client_name=client.name,
+                    specialty=client.specialty or "odontologia",
+                    top_performers=str(top_performers[:5])[:1500],
+                    low_performers=str(low_performers[:3])[:800],
+                    approved_roteiros=str(
+                        [
+                            {"hook": r.hook[:80], "feedback": r.human_feedback or ""}
+                            for r in roteiros[:5]
+                        ]
+                    )[:1000],
+                    patterns="\n".join(f"- {p}" for p in patterns)
+                    or "Sem padrões identificados ainda (dados insuficientes)",
+                    count=5,
+                    memory_context=memory["prompt_injection"],
+                ),
+                db=db,
+                client_slug=client.slug,
+            )
 
-        parsed = await self.claude.extract_json(message=response["text"], model="fast")
-        hypotheses = parsed.get("data", {})
+            parsed = await self.claude.extract_json(message=response["text"], model="fast")
+            hypotheses = parsed.get("data", {})
 
-        await feedback_loop.record_decision(
-            module=self.code,
-            action="gerar_hipoteses",
-            input_data={"client": client.slug, "roteiros_analyzed": len(roteiros)},
-            output_data={"hypotheses_count": len(hypotheses.get("hypotheses", []))},
-            reasoning=memory["reasoning_context"],
-            client_slug=client.slug,
-        )
+            await feedback_loop.record_decision(
+                module=self.code,
+                action="gerar_hipoteses",
+                input_data={"client": client.slug, "roteiros_analyzed": len(roteiros)},
+                output_data={"hypotheses_count": len(hypotheses.get("hypotheses", []))},
+                reasoning=memory["reasoning_context"],
+                client_slug=client.slug,
+            )
 
-        # Formatar resposta
-        hyps = hypotheses.get("hypotheses", [])
-        lines = [f"💡 **Hipóteses de Criativos — {client.name}**\n"]
-        if hypotheses.get("overall_insight"):
-            lines.append(f"_{hypotheses['overall_insight']}_\n")
-        for h in hyps[:5]:
-            lines.append(f"**{h.get('priority', '?')}. {h.get('title', '')}**")
-            lines.append(f"  Gancho: {h.get('hook_idea', '')}")
-            lines.append(f"  Abordagem: {h.get('approach', '')}")
-            lines.append(f"  Justificativa: {h.get('rationale', '')}")
-            lines.append("")
+            # Formatar resposta
+            hyps = hypotheses.get("hypotheses", [])
+            lines = [f"💡 **Hipóteses de Criativos — {client.name}**\n"]
+            if hypotheses.get("overall_insight"):
+                lines.append(f"_{hypotheses['overall_insight']}_\n")
+            for h in hyps[:5]:
+                lines.append(f"**{h.get('priority', '?')}. {h.get('title', '')}**")
+                lines.append(f"  Gancho: {h.get('hook_idea', '')}")
+                lines.append(f"  Abordagem: {h.get('approach', '')}")
+                lines.append(f"  Justificativa: {h.get('rationale', '')}")
+                lines.append("")
 
-        return {
-            "success": True,
-            "message": "\n".join(lines),
-            "data": {"client": client.slug, "hypotheses": hypotheses},
-            "actions_taken": ["hypotheses_generated"],
-        }
+            return {
+                "success": True,
+                "message": "\n".join(lines),
+                "data": {"client": client.slug, "hypotheses": hypotheses},
+                "actions_taken": ["hypotheses_generated"],
+            }
+
+        except Exception as e:
+            logger.exception("[M11] Erro em execute(): %s", e)
+            await self.increment_execution(db, success=False)
+            return {
+                "success": False,
+                "message": "Erro interno. Tente novamente em instantes.",
+                "actions_taken": ["error"],
+                "data": {"error": str(e)},
+            }
 
     async def _resolve_client(self, db, slug, message):
         if slug:

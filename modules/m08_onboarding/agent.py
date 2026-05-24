@@ -4,6 +4,7 @@ Automatiza as 10 etapas de ativação de novo cliente na WebXP.
 Checklist, cobrança de prazos, análise preliminar de mapeamento.
 """
 
+import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import select
@@ -12,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.models import Client, ModuleCode, User
 from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 ONBOARDING_STEPS = [
     {"step": 1, "name": "Contrato assinado", "owner": "comercial", "sla_days": 0},
@@ -109,66 +112,77 @@ class M08Onboarding(BaseModule):
             )
             checklist.append(f"{status} Etapa {step['step']}: {step['name']} ({step['owner']})")
 
-        # Se tem mapeamento pendente de análise (etapa 5)
-        actions = ["checklist_generated"]
-        analysis = None
+        try:
+            # Se tem mapeamento pendente de análise (etapa 5)
+            actions = ["checklist_generated"]
+            analysis = None
 
-        if current_step == 5:
-            mapping_data = onboarding_data.get("mapping_data", {})
-            if mapping_data:
-                response = await self.ask_claude(
-                    message=ANALYSIS_PROMPT.format(
-                        client_name=client.name,
-                        specialty=client.specialty or "odontologia",
-                        mapping_data=str(mapping_data)[:3000],
-                    ),
-                    db=db,
-                    client_slug=client.slug,
-                )
-                parsed = await self.claude.extract_json(message=response["text"], model="fast")
-                analysis = parsed.get("data", {})
-                actions.append("mapping_analyzed")
-
-        # Verificar SLA de etapas
-        sla_alerts = []
-        if start_date:
-            start = datetime.fromisoformat(start_date)
-            for step in ONBOARDING_STEPS:
-                if step["step"] not in completed_steps and step["step"] <= current_step:
-                    expected_date = start + timedelta(
-                        days=sum(s["sla_days"] for s in ONBOARDING_STEPS[: step["step"]])
+            if current_step == 5:
+                mapping_data = onboarding_data.get("mapping_data", {})
+                if mapping_data:
+                    response = await self.ask_claude(
+                        message=ANALYSIS_PROMPT.format(
+                            client_name=client.name,
+                            specialty=client.specialty or "odontologia",
+                            mapping_data=str(mapping_data)[:3000],
+                        ),
+                        db=db,
+                        client_slug=client.slug,
                     )
-                    if datetime.utcnow() > expected_date:
-                        days_late = (datetime.utcnow() - expected_date).days
-                        sla_alerts.append(
-                            f"Etapa {step['step']} ({step['name']}) atrasada {days_late} dia(s)"
+                    parsed = await self.claude.extract_json(message=response["text"], model="fast")
+                    analysis = parsed.get("data", {})
+                    actions.append("mapping_analyzed")
+
+            # Verificar SLA de etapas
+            sla_alerts = []
+            if start_date:
+                start = datetime.fromisoformat(start_date)
+                for step in ONBOARDING_STEPS:
+                    if step["step"] not in completed_steps and step["step"] <= current_step:
+                        expected_date = start + timedelta(
+                            days=sum(s["sla_days"] for s in ONBOARDING_STEPS[: step["step"]])
                         )
+                        if datetime.utcnow() > expected_date:
+                            days_late = (datetime.utcnow() - expected_date).days
+                            sla_alerts.append(
+                                f"Etapa {step['step']} ({step['name']}) atrasada {days_late} dia(s)"
+                            )
 
-        msg = f"📋 **Onboarding — {client.name}**\n\n" + "\n".join(checklist)
-        if sla_alerts:
-            msg += "\n\n⚠️ **Atrasos:**\n" + "\n".join(f"  • {a}" for a in sla_alerts)
-        if analysis:
-            msg += f"\n\n💡 **Análise do mapeamento:**\n{analysis.get('recommended_approach', '')}"
+            msg = f"📋 **Onboarding — {client.name}**\n\n" + "\n".join(checklist)
+            if sla_alerts:
+                msg += "\n\n⚠️ **Atrasos:**\n" + "\n".join(f"  • {a}" for a in sla_alerts)
+            if analysis:
+                msg += f"\n\n💡 **Análise do mapeamento:**\n{analysis.get('recommended_approach', '')}"
 
-        await feedback_loop.record_decision(
-            module=self.code,
-            action="check_onboarding",
-            input_data={"client": client.slug, "current_step": current_step},
-            output_data={"completed": len(completed_steps), "sla_alerts": len(sla_alerts)},
-            client_slug=client.slug,
-        )
+            await feedback_loop.record_decision(
+                module=self.code,
+                action="check_onboarding",
+                input_data={"client": client.slug, "current_step": current_step},
+                output_data={"completed": len(completed_steps), "sla_alerts": len(sla_alerts)},
+                client_slug=client.slug,
+            )
 
-        return {
-            "success": True,
-            "message": msg,
-            "data": {
-                "client": client.slug,
-                "current_step": current_step,
-                "analysis": analysis,
-                "sla_alerts": sla_alerts,
-            },
-            "actions_taken": actions,
-        }
+            return {
+                "success": True,
+                "message": msg,
+                "data": {
+                    "client": client.slug,
+                    "current_step": current_step,
+                    "analysis": analysis,
+                    "sla_alerts": sla_alerts,
+                },
+                "actions_taken": actions,
+            }
+
+        except Exception as e:
+            logger.exception("[M08] Erro em execute(): %s", e)
+            await self.increment_execution(db, success=False)
+            return {
+                "success": False,
+                "message": "Erro interno. Tente novamente em instantes.",
+                "actions_taken": ["error"],
+                "data": {"error": str(e)},
+            }
 
     async def _resolve_client(self, db, slug, message):
         if slug:

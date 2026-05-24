@@ -38,6 +38,7 @@ O módulo está construído e pronto. Aguarda:
 3. Setup do webhook no Evolution API / WhatsApp Web
 """
 
+import logging
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -53,6 +54,8 @@ from core.models import (
 )
 from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
+
+logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════
 # SYSTEM PROMPTS
