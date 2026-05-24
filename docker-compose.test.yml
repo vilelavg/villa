@@ -1,0 +1,71 @@
+# ═══════════════════════════════════════════════════════════════
+# VILLA — docker-compose.test.yml
+#
+# Ambiente isolado exclusivo para testes. NUNCA mistura com os
+# dados de desenvolvimento ou produção.
+#
+# Diferenças do docker-compose.yml principal:
+#   - Banco: villa_test_db (porta 5433 — não conflita com dev)
+#   - Redis: banco 1 (porta 6380 — não conflita com dev)
+#   - Sem a aplicação FastAPI (testes apontam direto para o código)
+#   - Dados efêmeros: sem volumes persistentes — banco recriado a cada run
+#   - Sem Nginx
+#
+# Como usar:
+#   docker compose -f docker-compose.test.yml up -d
+#   pytest --cov=. --cov-report=term-missing
+#   docker compose -f docker-compose.test.yml down -v
+#
+# Em CI (GitHub Actions), esses serviços são provisionados
+# automaticamente pelo workflow ci.yml via "services:".
+# ═══════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL de testes ────────────────────────────────────
+  postgres-test:
+    image: pgvector/pgvector:pg16
+    container_name: villa-postgres-test
+    environment:
+      POSTGRES_USER: villa
+      POSTGRES_PASSWORD: villa_dev_2026
+      POSTGRES_DB: villa_test_db
+    ports:
+      - "5433:5432"          # porta diferente para não conflitar com dev (5432)
+    tmpfs:
+      - /var/lib/postgresql/data  # banco em memória — efêmero e rápido
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U villa -d villa_test_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    networks:
+      - villa-test-network
+
+  # ── Redis de testes ──────────────────────────────────────────
+  redis-test:
+    image: redis:7-alpine
+    container_name: villa-redis-test
+    ports:
+      - "6380:6379"          # porta diferente para não conflitar com dev (6379)
+    command: >
+      redis-server
+      --appendonly no        # sem persistência — dados descartados ao parar
+      --maxmemory 64mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - villa-test-network
+
+networks:
+  villa-test-network:
+    driver: bridge
+
+# Sem volumes declarados: os dados de teste são sempre efêmeros.
+# O banco começa vazio a cada "docker compose up" e as migrations
+# são aplicadas pelo conftest.py antes dos testes rodarem.

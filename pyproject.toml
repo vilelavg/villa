@@ -6,9 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "Proprietary — WebXP / Vitor Vilela"}
 authors = [
-    {name = "Vitor Vilela", email = "contato@seudominio.com.br"},
+  {name = "Vitor Vilela", email = "contato@seudominio.com.br"},
 ]
 
+# ── Ruff (linter + formatter) ────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py312"
 line-length = 100
@@ -20,12 +21,63 @@ ignore = ["E501"]
 [tool.ruff.lint.isort]
 known-first-party = ["core", "modules", "integrations", "memory", "scheduler", "security", "api"]
 
+# ── Pytest ───────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 filterwarnings = [
-    "ignore::DeprecationWarning",
+  "ignore::DeprecationWarning",
+]
+# Flags padrão aplicadas em todo pytest (sem precisar digitar sempre)
+addopts = """
+  --strict-markers
+  -ra
+"""
+# Markers customizados usados na suíte
+markers = [
+  "unit: testes unitários (sem banco, sem rede)",
+  "integration: testes de integração (banco real de teste)",
+  "prompts: validação de outputs do LLM",
+  "slow: testes que demoram mais de 5s",
 ]
 
+# ── Coverage ─────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = [
+  "core",
+  "modules",
+  "integrations",
+  "memory",
+  "scheduler",
+  "security",
+  "api",
+]
+omit = [
+  "tests/*",
+  "db/migrations/*",
+  "scripts/*",
+  "**/__init__.py",
+  "**/conftest.py",
+]
+branch = true   # mede cobertura de branches (if/else), não só linhas
+
+[tool.coverage.report]
+fail_under = 80                # CI quebra se cobertura global cair abaixo de 80%
+show_missing = true            # mostra linhas não cobertas no terminal
+skip_covered = false           # mostra todos os arquivos, mesmo os com 100%
+precision = 1                  # uma casa decimal no percentual
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  "pass",
+  "\\.\\.\\.\\s*$",            # blocos com apenas "..."
+]
+
+[tool.coverage.html]
+directory = "htmlcov"          # relatório visual: abrir htmlcov/index.html
+
+# ── Alembic ──────────────────────────────────────────────────────────────────
 [tool.alembic]
 script_location = "db/migrations"

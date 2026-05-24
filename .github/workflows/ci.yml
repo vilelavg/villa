@@ -1,0 +1,198 @@
+# ═══════════════════════════════════════════════════════════════
+# VILLA — .github/workflows/ci.yml
+#
+# Pipeline de Integração Contínua.
+# Roda em todo Pull Request e em todo push para main.
+#
+# Jobs (em sequência — próximo só roda se anterior passar):
+#   1. lint     → ruff (formatação + imports + estilo)
+#   2. test     → pytest com cobertura mínima de 80%
+#
+# Nenhum código chega em main sem passar pelos dois jobs.
+# ═══════════════════════════════════════════════════════════════
+
+name: CI — Villa
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# Cancela runs anteriores do mesmo PR ao receber novo push
+# (evita fila de CI desnecessária)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Variáveis de ambiente para os testes — valores de sandbox/mock
+  ENVIRONMENT: testing
+  TESTING: "true"
+  DEBUG: "false"
+  LOG_LEVEL: WARNING
+  # Banco de testes (provisionado pelo serviço abaixo)
+  TEST_DATABASE_URL: postgresql+asyncpg://villa:villa_test@localhost:5433/villa_test_db
+  DATABASE_URL: postgresql+asyncpg://villa:villa_test@localhost:5433/villa_test_db
+  # Redis de testes
+  TEST_REDIS_URL: redis://localhost:6380/1
+  REDIS_URL: redis://localhost:6380/1
+  # Claude — chave falsa, Anthropic é sempre mockado em testes
+  ANTHROPIC_API_KEY: sk-ant-test-fake-key-never-hits-api
+  ANTHROPIC_MODEL_PRIMARY: claude-sonnet-4-20250514
+  ANTHROPIC_MODEL_FAST: claude-haiku-4-5-20251001
+  # Integrações — todas mockadas, tokens falsos não causam chamadas reais
+  KOMMO_API_TOKEN: fake-kommo-token-ci
+  KOMMO_ACCOUNT_URL: https://test.kommo.com
+  KOMMO_WEBHOOK_SECRET: fake-webhook-secret
+  META_ACCESS_TOKEN: fake-meta-token-ci
+  META_APP_SECRET: fake-meta-secret
+  META_AD_ACCOUNT_IDS: act_000000001
+  META_PIXEL_ID: "000000001"
+  META_CAPI_TOKEN: fake-capi-token
+  WHATSAPP_TOKEN: fake-wa-token
+  WHATSAPP_PHONE_ID: "000000001"
+  WHATSAPP_VERIFY_TOKEN: fake-verify-token
+  WHATSAPP_WEBHOOK_SECRET: fake-wa-secret
+  GOOGLE_SERVICE_ACCOUNT_JSON: config/google_service_account.json
+  INLEAD_WEBHOOK_SECRET: fake-inlead-secret
+  N8N_BASE_URL: http://localhost:5678
+  N8N_API_KEY: fake-n8n-key
+  # Segurança — chaves de teste (nunca usar em produção)
+  JWT_SECRET_KEY: test-jwt-secret-key-minimum-32-chars-long
+  JWT_ALGORITHM: HS256
+  JWT_EXPIRATION_MINUTES: "60"
+  ENCRYPTION_KEY: dGVzdC1mZXJuZXQta2V5LTMyY2hhcnMtbG9uZy0x  # base64 de teste
+
+jobs:
+
+  # ════════════════════════════════════════════════════════════
+  # JOB 1 — Lint e formatação
+  # Roda sem banco de dados. Rápido (~30s).
+  # ════════════════════════════════════════════════════════════
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar ruff
+        run: pip install ruff>=0.8.0
+
+      - name: Verificar formatação e imports
+        run: ruff check . --output-format=github
+
+      - name: Verificar formatação de código
+        run: ruff format --check .
+
+  # ════════════════════════════════════════════════════════════
+  # JOB 2 — Testes com cobertura
+  # Depende do lint passar. Provisiona PostgreSQL + Redis.
+  # ════════════════════════════════════════════════════════════
+  test:
+    name: Testes + Cobertura
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint   # só roda se lint passar
+
+    # Serviços provisionados antes dos testes rodarem
+    services:
+
+      postgres-test:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: villa
+          POSTGRES_PASSWORD: villa_test
+          POSTGRES_DB: villa_test_db
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U villa -d villa_test_db"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 10s
+
+      redis-test:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Criar arquivo de service account Google (fake para CI)
+        run: |
+          mkdir -p config
+          echo '{"type":"service_account","project_id":"villa-test","private_key_id":"test","private_key":"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA0Z3VS5JJcds3xHn/ygWep4nQPzUDBs/XkXSAGJTHHsFhd9HN\n-----END RSA PRIVATE KEY-----\n","client_email":"test@villa-test.iam.gserviceaccount.com","client_id":"123","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token"}' \
+          > config/google_service_account.json
+
+      - name: Aguardar serviços ficarem saudáveis
+        run: |
+          echo "Verificando PostgreSQL..."
+          timeout 30 bash -c 'until pg_isready -h localhost -p 5433 -U villa; do sleep 1; done'
+          echo "Verificando Redis..."
+          timeout 30 bash -c 'until redis-cli -p 6380 ping; do sleep 1; done'
+          echo "Serviços prontos."
+
+      - name: Rodar testes com cobertura
+        run: |
+          pytest \
+            --cov=core \
+            --cov=modules \
+            --cov=integrations \
+            --cov=memory \
+            --cov=scheduler \
+            --cov=security \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-fail-under=80 \
+            -v \
+            --tb=short \
+            -x            # para no primeiro erro (fail-fast)
+
+      - name: Publicar relatório de cobertura
+        # Roda mesmo se os testes falharem — para diagnóstico
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+          fail_ci_if_error: false   # não quebra o CI se codecov estiver fora
+
+      - name: Resumo dos resultados
+        if: always()
+        run: |
+          echo "## Resultado dos Testes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f coverage.xml ]; then
+            echo "✅ Relatório de cobertura gerado: coverage.xml" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Relatório de cobertura não encontrado" >> $GITHUB_STEP_SUMMARY
+          fi
