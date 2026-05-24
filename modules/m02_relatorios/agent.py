@@ -10,6 +10,10 @@ Fluxo:
     5. Armazena no banco e entrega para envio
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from datetime import date, timedelta
 from typing import Optional
 from uuid import uuid4
@@ -190,26 +194,37 @@ class M02Relatorios(BaseModule):
 
         # Análise do Claude
         thresholds = (client.config or {}).get("thresholds", {})
-        analysis_response = await self.ask_claude(
-            message=ANALYSIS_PROMPT.format(
-                client_name=client.name,
-                specialty=client.specialty or "odontologia",
-                period_start=period_start,
-                period_end=period_end,
-                report_type=report_type,
-                consolidated_data=str(data.get("consolidated", {})),
-                meta_data=str(data.get("meta_ads", {})),
-                leads_data=str(data.get("leads_summary", {})),
-                appointments_data=str(data.get("appointments", {})),
-                thresholds=str(thresholds),
-                memory_context=memory["prompt_injection"],
-            ),
-            db=db,
-            system_override=ANALYSIS_SYSTEM_PROMPT,
-            client_slug=client.slug,
-        )
+        try:
+            analysis_response = await self.ask_claude(
+                message=ANALYSIS_PROMPT.format(
+                    client_name=client.name,
+                    specialty=client.specialty or "odontologia",
+                    period_start=period_start,
+                    period_end=period_end,
+                    report_type=report_type,
+                    consolidated_data=str(data.get("consolidated", {})),
+                    meta_data=str(data.get("meta_ads", {})),
+                    leads_data=str(data.get("leads_summary", {})),
+                    appointments_data=str(data.get("appointments", {})),
+                    thresholds=str(thresholds),
+                    memory_context=memory["prompt_injection"],
+                ),
+                db=db,
+                system_override=ANALYSIS_SYSTEM_PROMPT,
+                client_slug=client.slug,
+            )
 
-        analysis = analysis_response["text"]
+            analysis = analysis_response["text"]
+
+        except Exception as e:
+            logger.exception("[M02] Erro na análise Claude para %s: %s", client.slug, e)
+            await self.increment_execution(db, success=False)
+            return {
+                "success": False,
+                "message": "Erro ao gerar análise do relatório. Dados coletados mas análise indisponível.",
+                "actions_taken": ["data_collected", "error"],
+                "data": {"error": str(e), "client": client.slug, "raw_data": data.get("consolidated")},
+            }
 
         # Formatar
         if report_type == "daily":

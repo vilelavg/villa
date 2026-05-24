@@ -13,9 +13,12 @@ Fluxo completo:
     8. Retorna roteiro pronto para revisão humana
 """
 
+import logging
 import re
 from typing import Optional
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -131,59 +134,42 @@ class M01Roteiros(BaseModule):
         min_body = client_config.get("thresholds", {}).get("min_body_score", config.get("min_body_score", 7.0))
         min_cta = client_config.get("thresholds", {}).get("min_cta_score", config.get("min_cta_score", 7.0))
 
-        # ── 5. Gerar roteiro ──
-        training_data = await self.get_training_data(db)
-        training_text = self._format_training_examples(training_data)
+        try:
+            # ── 5. Gerar roteiro ──
+            training_data = await self.get_training_data(db)
+            training_text = self._format_training_examples(training_data)
 
-        generation_prompt = GENERATION_PROMPT.format(
-            client_name=client.name,
-            specialty=client.specialty or "odontologia geral",
-            tone=client_config.get("tom_voz", "profissional e acessível"),
-            topic=briefing.get("topic", "tema não especificado"),
-            format=briefing.get("format", "Reels (30-60s)"),
-            audience=briefing.get("audience", "pacientes e potenciais pacientes"),
-            objective=briefing.get("objective", "gerar leads qualificados"),
-            memory_context=memory["prompt_injection"],
-            training_examples=training_text,
-        )
-
-        response = await self.ask_claude(
-            message=generation_prompt,
-            db=db,
-            system_override=SYSTEM_PROMPT,
-            client_slug=client.slug,
-        )
-
-        raw_text = response["text"]
-        parsed = self._parse_roteiro(raw_text)
-
-        if not parsed["hook"] or not parsed["body"] or not parsed["cta"]:
-            return {
-                "success": False,
-                "message": "Erro ao gerar roteiro — estrutura incompleta. Tente novamente com mais detalhes no briefing.",
-                "data": {"raw_text": raw_text[:500]},
-                "actions_taken": ["generation_failed"],
-            }
-
-        # ── 6. Tripla validação ──
-        validation = await self.validator.validate_full(
-            hook=parsed["hook"],
-            body=parsed["body"],
-            cta=parsed["cta"],
-            specialty=client.specialty or "odontologia",
-            min_hook_score=min_hook,
-            min_body_score=min_body,
-            min_cta_score=min_cta,
-        )
-
-        # ── 7. Refinar se não passou (até 2 tentativas) ──
-        attempt = 0
-        while not validation["all_passed"] and attempt < self.MAX_REFINEMENT_ATTEMPTS:
-            attempt += 1
-            refined = await self._refine_roteiro(
-                parsed, validation, client.specialty or "odontologia", db, client.slug
+            generation_prompt = GENERATION_PROMPT.format(
+                client_name=client.name,
+                specialty=client.specialty or "odontologia geral",
+                tone=client_config.get("tom_voz", "profissional e acessível"),
+                topic=briefing.get("topic", "tema não especificado"),
+                format=briefing.get("format", "Reels (30-60s)"),
+                audience=briefing.get("audience", "pacientes e potenciais pacientes"),
+                objective=briefing.get("objective", "gerar leads qualificados"),
+                memory_context=memory["prompt_injection"],
+                training_examples=training_text,
             )
-            parsed = refined
+
+            response = await self.ask_claude(
+                message=generation_prompt,
+                db=db,
+                system_override=SYSTEM_PROMPT,
+                client_slug=client.slug,
+            )
+
+            raw_text = response["text"]
+            parsed = self._parse_roteiro(raw_text)
+
+            if not parsed["hook"] or not parsed["body"] or not parsed["cta"]:
+                return {
+                    "success": False,
+                    "message": "Erro ao gerar roteiro — estrutura incompleta. Tente novamente com mais detalhes no briefing.",
+                    "data": {"raw_text": raw_text[:500]},
+                    "actions_taken": ["generation_failed"],
+                }
+
+            # ── 6. Tripla validação ──
             validation = await self.validator.validate_full(
                 hook=parsed["hook"],
                 body=parsed["body"],
@@ -194,82 +180,110 @@ class M01Roteiros(BaseModule):
                 min_cta_score=min_cta,
             )
 
-        # ── 8. Gerar variações de gancho ──
-        hook_variations = await self._generate_hook_variations(
-            parsed["hook"], parsed["body"], client.specialty or "odontologia"
-        )
+            # ── 7. Refinar se não passou (até 2 tentativas) ──
+            attempt = 0
+            while not validation["all_passed"] and attempt < self.MAX_REFINEMENT_ATTEMPTS:
+                attempt += 1
+                refined = await self._refine_roteiro(
+                    parsed, validation, client.specialty or "odontologia", db, client.slug
+                )
+                parsed = refined
+                validation = await self.validator.validate_full(
+                    hook=parsed["hook"],
+                    body=parsed["body"],
+                    cta=parsed["cta"],
+                    specialty=client.specialty or "odontologia",
+                    min_hook_score=min_hook,
+                    min_body_score=min_body,
+                    min_cta_score=min_cta,
+                )
 
-        # ── 9. Salvar no banco ──
-        status = RoteiroStatus.APPROVED if validation["all_passed"] else RoteiroStatus.DRAFT
-        roteiro = Roteiro(
-            id=str(uuid4()),
-            client_id=client.id,
-            status=status,
-            title=parsed.get("title", f"Roteiro {client.name} — {briefing.get('topic', '')}"),
-            hook=parsed["hook"],
-            body=parsed["body"],
-            cta=parsed["cta"],
-            full_script=parsed.get("full_script", f"{parsed['hook']}\n\n{parsed['body']}\n\n{parsed['cta']}"),
-            hook_score=validation["validations"]["hook"]["score"],
-            hook_feedback=validation["validations"]["hook"]["feedback"],
-            body_score=validation["validations"]["body"]["score"],
-            body_feedback=validation["validations"]["body"]["feedback"],
-            cta_score=validation["validations"]["cta"]["score"],
-            cta_feedback=validation["validations"]["cta"]["feedback"],
-            overall_score=validation["overall_score"],
-            hook_variations=hook_variations,
-            briefing=briefing,
-            generation_params={
-                "model": response.get("model"),
-                "memory_sources": memory.get("sources", []),
-                "refinement_attempts": attempt,
-            },
-        )
-        db.add(roteiro)
-        await db.flush()
+            # ── 8. Gerar variações de gancho ──
+            hook_variations = await self._generate_hook_variations(
+                parsed["hook"], parsed["body"], client.specialty or "odontologia"
+            )
 
-        # ── 10. Registrar decisão no feedback loop ──
-        decision_id = await feedback_loop.record_decision(
-            module=self.code,
-            action="gerar_roteiro",
-            input_data=briefing,
-            output_data={
-                "roteiro_id": roteiro.id,
-                "overall_score": validation["overall_score"],
-                "all_passed": validation["all_passed"],
-                "attempts": attempt + 1,
-            },
-            reasoning=memory["reasoning_context"],
-            client_slug=client.slug,
-            tokens_input=response.get("tokens_input", 0),
-            tokens_output=response.get("tokens_output", 0),
-            model_used=response.get("model"),
-            cost_usd=response.get("cost_usd", 0),
-        )
+            # ── 9. Salvar no banco ──
+            status = RoteiroStatus.APPROVED if validation["all_passed"] else RoteiroStatus.DRAFT
+            roteiro = Roteiro(
+                id=str(uuid4()),
+                client_id=client.id,
+                status=status,
+                title=parsed.get("title", f"Roteiro {client.name} — {briefing.get('topic', '')}"),
+                hook=parsed["hook"],
+                body=parsed["body"],
+                cta=parsed["cta"],
+                full_script=parsed.get("full_script", f"{parsed['hook']}\n\n{parsed['body']}\n\n{parsed['cta']}"),
+                hook_score=validation["validations"]["hook"]["score"],
+                hook_feedback=validation["validations"]["hook"]["feedback"],
+                body_score=validation["validations"]["body"]["score"],
+                body_feedback=validation["validations"]["body"]["feedback"],
+                cta_score=validation["validations"]["cta"]["score"],
+                cta_feedback=validation["validations"]["cta"]["feedback"],
+                overall_score=validation["overall_score"],
+                hook_variations=hook_variations,
+                briefing=briefing,
+                generation_params={
+                    "model": response.get("model"),
+                    "memory_sources": memory.get("sources", []),
+                    "refinement_attempts": attempt,
+                },
+            )
+            db.add(roteiro)
+            await db.flush()
 
-        # ── 11. Montar resposta ──
-        actions = ["roteiro_generated", "triple_validation"]
-        if attempt > 0:
-            actions.append(f"refined_{attempt}x")
-        if validation["all_passed"]:
-            actions.append("auto_approved")
+            # ── 10. Registrar decisão no feedback loop ──
+            decision_id = await feedback_loop.record_decision(
+                module=self.code,
+                action="gerar_roteiro",
+                input_data=briefing,
+                output_data={
+                    "roteiro_id": roteiro.id,
+                    "overall_score": validation["overall_score"],
+                    "all_passed": validation["all_passed"],
+                    "attempts": attempt + 1,
+                },
+                reasoning=memory["reasoning_context"],
+                client_slug=client.slug,
+                tokens_input=response.get("tokens_input", 0),
+                tokens_output=response.get("tokens_output", 0),
+                model_used=response.get("model"),
+                cost_usd=response.get("cost_usd", 0),
+            )
 
-        return {
-            "success": True,
-            "message": self._format_response(parsed, validation, hook_variations, attempt),
-            "data": {
-                "roteiro_id": roteiro.id,
-                "decision_id": decision_id,
-                "client": client.slug,
-                "status": status.value,
-                "overall_score": validation["overall_score"],
-                "all_passed": validation["all_passed"],
-                "attempts": attempt + 1,
-                "hook_variations_count": len(hook_variations) if hook_variations else 0,
-            },
-            "actions_taken": actions,
-            "tokens_used": response.get("tokens_input", 0) + response.get("tokens_output", 0) + validation.get("total_tokens", 0),
-        }
+            # ── 11. Montar resposta ──
+            actions = ["roteiro_generated", "triple_validation"]
+            if attempt > 0:
+                actions.append(f"refined_{attempt}x")
+            if validation["all_passed"]:
+                actions.append("auto_approved")
+
+            return {
+                "success": True,
+                "message": self._format_response(parsed, validation, hook_variations, attempt),
+                "data": {
+                    "roteiro_id": roteiro.id,
+                    "decision_id": decision_id,
+                    "client": client.slug,
+                    "status": status.value,
+                    "overall_score": validation["overall_score"],
+                    "all_passed": validation["all_passed"],
+                    "attempts": attempt + 1,
+                    "hook_variations_count": len(hook_variations) if hook_variations else 0,
+                },
+                "actions_taken": actions,
+                "tokens_used": response.get("tokens_input", 0) + response.get("tokens_output", 0) + validation.get("total_tokens", 0),
+            }
+
+        except Exception as e:
+            logger.exception("[M01] Erro ao gerar roteiro para %s: %s", client.slug, e)
+            await self.increment_execution(db, success=False)
+            return {
+                "success": False,
+                "message": "Erro interno ao gerar roteiro. Tente novamente.",
+                "actions_taken": ["error"],
+                "data": {"error": str(e), "client": client.slug},
+            }
 
     # ═══════════════════════════════════════════════════
     # MÉTODOS INTERNOS
