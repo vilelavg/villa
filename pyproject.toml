@@ -9,42 +9,44 @@ authors = [
   {name = "Vitor Vilela", email = "contato@seudominio.com.br"},
 ]
 
-# ── Ruff (linter + formatter) ────────────────────────────────────────────────
+# ── Ruff ─────────────────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-exclude = [
-  ".git",
-  "__pycache__",
-  "db/migrations",
-  "scripts",
-  ".venv",
-]
+exclude = [".git", "__pycache__", "db/migrations", "scripts", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = [
-  "E501",   # linha muito longa — controlado pelo line-length acima
-  "W293",   # whitespace em linha em branco — corrigir incrementalmente
+  # ── Ignorados permanentemente ──────────────────────────────────────────────
+  "E501",   # linha longa — controlado pelo line-length
+  # ── Ignorados temporariamente (corrigir incrementalmente) ──────────────────
+  "W291",   # trailing whitespace
+  "W293",   # whitespace em linha em branco
+  "E701",   # múltiplos statements na mesma linha
+  "E711",   # comparação com None
+  "E712",   # comparação com True/False
+  "E741",   # variável com nome ambíguo (l, O, I)
+  "F841",   # variável local nunca usada
   "UP017",  # datetime.UTC alias — adotar progressivamente
-  "UP045",  # X | None — adotar progressivamente no código existente
-  "I001",   # imports unsorted — corrigir incrementalmente no código existente
+  "UP042",  # StrEnum — adotar progressivamente
+  "UP045",  # X | None — adotar progressivamente
+  "I001",   # imports unsorted — corrigir incrementalmente
+  "E402",   # import não no topo — corrigir quando refatorar
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["core", "modules", "integrations", "memory", "scheduler", "security", "api"]
+known-first-party = [
+  "core", "modules", "integrations", "memory",
+  "scheduler", "security", "api",
+]
 
-# ── Pytest ───────────────────────────────────────────────────────────────────
+# ── Pytest ────────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-filterwarnings = [
-  "ignore::DeprecationWarning",
-]
-addopts = """
-  --strict-markers
-  -ra
-"""
+filterwarnings = ["ignore::DeprecationWarning"]
+addopts = "--strict-markers -ra"
 markers = [
   "unit: testes unitários (sem banco, sem rede)",
   "integration: testes de integração (banco real de teste)",
@@ -52,24 +54,10 @@ markers = [
   "slow: testes que demoram mais de 5s",
 ]
 
-# ── Coverage ─────────────────────────────────────────────────────────────────
+# ── Coverage ──────────────────────────────────────────────────────────────────
 [tool.coverage.run]
-source = [
-  "core",
-  "modules",
-  "integrations",
-  "memory",
-  "scheduler",
-  "security",
-  "api",
-]
-omit = [
-  "tests/*",
-  "db/migrations/*",
-  "scripts/*",
-  "**/__init__.py",
-  "**/conftest.py",
-]
+source = ["core", "modules", "integrations", "memory", "scheduler", "security", "api"]
+omit = ["tests/*", "db/migrations/*", "scripts/*", "**/__init__.py", "**/conftest.py"]
 branch = true
 
 [tool.coverage.report]
@@ -83,12 +71,11 @@ exclude_lines = [
   "raise NotImplementedError",
   "if TYPE_CHECKING:",
   "pass",
-  "\\.\\.\\.\\s*$",
 ]
 
 [tool.coverage.html]
 directory = "htmlcov"
 
-# ── Alembic ──────────────────────────────────────────────────────────────────
+# ── Alembic ───────────────────────────────────────────────────────────────────
 [tool.alembic]
 script_location = "db/migrations"

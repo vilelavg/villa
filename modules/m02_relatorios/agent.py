@@ -11,14 +11,13 @@ Fluxo:
 """
 
 import logging
-
-logger = logging.getLogger(__name__)
-
 from datetime import date, timedelta
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from core.models import (
     Client,
