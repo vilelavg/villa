@@ -25,6 +25,7 @@ import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
@@ -87,14 +88,14 @@ async def db_session(engine, create_test_schema) -> AsyncGenerator[AsyncSession,
         await conn.begin()          # abre a transação externa
         await conn.begin_nested()   # savepoint — revertido ao final do teste
 
-        Session = async_sessionmaker(
+        async_session_factory = async_sessionmaker(
             bind=conn,
             class_=AsyncSession,
             expire_on_commit=False,
             join_transaction_mode="create_savepoint",
         )
 
-        async with Session() as session:
+        async with async_session_factory() as session:
             yield session
 
         # Garante rollback mesmo se o teste falhar no meio

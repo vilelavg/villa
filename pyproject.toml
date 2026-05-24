@@ -33,6 +33,8 @@ ignore = [
   "UP045",  # X | None — adotar progressivamente
   "I001",   # imports unsorted — corrigir incrementalmente
   "E402",   # import não no topo — corrigir quando refatorar
+  "F402",   # import sombreado por variável de loop — pré-existente
+  "F821",   # nome indefinido — pré-existente em m06/embeddings
 ]
 
 [tool.ruff.lint.isort]

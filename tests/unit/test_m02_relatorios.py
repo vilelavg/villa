@@ -135,10 +135,10 @@ class TestExecutarRelatorio:
 
             module = M02Relatorios()
             with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as MockCollector:
+                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
 
                 mock_ask.return_value = make_claude_response()
-                MockCollector.return_value.collect_all = AsyncMock(return_value={
+                mock_collector.return_value.collect_all = AsyncMock(return_value={
                     "client": "clinica-demo",
                     "meta_ads": {"total_spend": 500.0, "total_leads": 10, "avg_ctr": 3.0, "avg_cpl": 50.0, "campaigns": []},
                     "leads_summary": {"total": 10, "qualified": 6, "won": 2, "total_value": 4000.0, "qualification_rate": 60.0},
@@ -167,10 +167,10 @@ class TestExecutarRelatorio:
 
             module = M02Relatorios()
             with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as MockCollector:
+                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
 
                 mock_ask.return_value = make_claude_response()
-                MockCollector.return_value.collect_all = AsyncMock(return_value={
+                mock_collector.return_value.collect_all = AsyncMock(return_value={
                     "client": "clinica-demo", "meta_ads": {}, "google_ads": None,
                     "leads_summary": {"total": 0, "qualified": 0, "won": 0, "total_value": 0, "qualification_rate": 0},
                     "appointments": {"total": 0, "show_rate": 0},
@@ -194,10 +194,10 @@ class TestExecutarRelatorio:
 
             module = M02Relatorios()
             with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as MockCollector:
+                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
 
                 mock_ask.return_value = make_claude_response()
-                MockCollector.return_value.collect_all = AsyncMock(return_value={
+                mock_collector.return_value.collect_all = AsyncMock(return_value={
                     "client": "clinica-demo", "meta_ads": None, "google_ads": None,
                     "leads_summary": {"total": 5, "qualified": 2, "won": 1, "total_value": 2000, "qualification_rate": 40},
                     "appointments": {"total": 3, "show_rate": 66.7},
@@ -431,9 +431,9 @@ class TestResiliencia:
 
             module = M02Relatorios()
             with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as MockCollector:
+                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
 
-                MockCollector.return_value.collect_all = AsyncMock(return_value={
+                mock_collector.return_value.collect_all = AsyncMock(return_value={
                     "client": "clinica-demo", "meta_ads": None, "google_ads": None,
                     "leads_summary": {"total": 0, "qualified": 0, "won": 0, "total_value": 0, "qualification_rate": 0},
                     "appointments": {"show_rate": 0},
