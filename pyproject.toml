@@ -13,10 +13,23 @@ authors = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+exclude = [
+  ".git",
+  "__pycache__",
+  "db/migrations",
+  "scripts",
+  ".venv",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+ignore = [
+  "E501",   # linha muito longa — controlado pelo line-length acima
+  "W293",   # whitespace em linha em branco — corrigir incrementalmente
+  "UP017",  # datetime.UTC alias — adotar progressivamente
+  "UP045",  # X | None — adotar progressivamente no código existente
+  "I001",   # imports unsorted — corrigir incrementalmente no código existente
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["core", "modules", "integrations", "memory", "scheduler", "security", "api"]
@@ -28,12 +41,10 @@ asyncio_mode = "auto"
 filterwarnings = [
   "ignore::DeprecationWarning",
 ]
-# Flags padrão aplicadas em todo pytest (sem precisar digitar sempre)
 addopts = """
   --strict-markers
   -ra
 """
-# Markers customizados usados na suíte
 markers = [
   "unit: testes unitários (sem banco, sem rede)",
   "integration: testes de integração (banco real de teste)",
@@ -59,24 +70,24 @@ omit = [
   "**/__init__.py",
   "**/conftest.py",
 ]
-branch = true   # mede cobertura de branches (if/else), não só linhas
+branch = true
 
 [tool.coverage.report]
-fail_under = 80                # CI quebra se cobertura global cair abaixo de 80%
-show_missing = true            # mostra linhas não cobertas no terminal
-skip_covered = false           # mostra todos os arquivos, mesmo os com 100%
-precision = 1                  # uma casa decimal no percentual
+fail_under = 80
+show_missing = true
+skip_covered = false
+precision = 1
 exclude_lines = [
   "pragma: no cover",
   "def __repr__",
   "raise NotImplementedError",
   "if TYPE_CHECKING:",
   "pass",
-  "\\.\\.\\.\\s*$",            # blocos com apenas "..."
+  "\\.\\.\\.\\s*$",
 ]
 
 [tool.coverage.html]
-directory = "htmlcov"          # relatório visual: abrir htmlcov/index.html
+directory = "htmlcov"
 
 # ── Alembic ──────────────────────────────────────────────────────────────────
 [tool.alembic]
