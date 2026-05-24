@@ -14,10 +14,33 @@ class ReportFormatter:
     Formata relatórios consolidados em diferentes formatos de saída.
 
     Uso:
-        formatter = ReportFormatter()
+        formatter = ReportFormatter()                       # pt-BR por padrão
+        formatter = ReportFormatter(locale="en-US")        # formato americano
+
         whatsapp_msg = formatter.format_daily_whatsapp(data, analysis)
         weekly_text = formatter.format_weekly(data, analysis)
     """
+
+    def __init__(self, locale: str = "pt-BR") -> None:
+        """
+        Args:
+            locale: "pt-BR" (padrão) — separador de milhar ponto, decimal vírgula
+                    "en-US"          — separador de milhar vírgula, decimal ponto
+        """
+        self.locale = locale
+
+    def _fmt(self, value: float, decimals: int = 2) -> str:
+        """
+        Formata um número monetário conforme o locale configurado.
+
+        pt-BR: 2500.00 → "2.500,00"
+        en-US: 2500.00 → "2,500.00"
+        """
+        formatted = f"{value:,.{decimals}f}"  # sempre gera formato en-US primeiro
+        if self.locale == "pt-BR":
+            # Troca: vírgula→X, ponto→vírgula, X→ponto
+            formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+        return formatted
 
     def format_daily_whatsapp(
         self,
@@ -47,11 +70,11 @@ class ReportFormatter:
         cpl = consolidated.get("cpl_consolidated", 0)
 
         if invest > 0:
-            lines.append(f"💰 Investimento: R$ {invest:,.2f}")
+            lines.append(f"💰 Investimento: R$ {self._fmt(invest)}")
         if total_leads > 0:
             lines.append(f"👤 Leads: {total_leads}")
         if cpl > 0:
-            lines.append(f"📉 CPL: R$ {cpl:,.2f}")
+            lines.append(f"📉 CPL: R$ {self._fmt(cpl)}")
 
         # Qualificação e conversão
         qualified = consolidated.get("total_qualified", 0)
@@ -62,7 +85,7 @@ class ReportFormatter:
         won = consolidated.get("total_won", 0)
         if won > 0:
             revenue = consolidated.get("total_revenue", 0)
-            lines.append(f"🏆 Fechados: {won} (R$ {revenue:,.2f})")
+            lines.append(f"🏆 Fechados: {won} (R$ {self._fmt(revenue)})")
 
         # Show rate
         show_rate = consolidated.get("show_rate", 0)
@@ -106,20 +129,22 @@ class ReportFormatter:
 
         # ── Investimento e Performance ──
         lines.append("💰 INVESTIMENTO E PERFORMANCE")
-        lines.append(f"  Investimento total: R$ {consolidated.get('total_investment', 0):,.2f}")
+        lines.append(
+            f"  Investimento total: R$ {self._fmt(consolidated.get('total_investment', 0))}"
+        )
 
         if meta and not meta.get("error"):
-            lines.append(f"  Meta Ads: R$ {meta.get('total_spend', 0):,.2f}")
+            lines.append(f"  Meta Ads: R$ {self._fmt(meta.get('total_spend', 0))}")
             lines.append(f"    Impressões: {meta.get('total_impressions', 0):,}")
             lines.append(f"    Cliques: {meta.get('total_clicks', 0):,}")
             lines.append(f"    CTR médio: {meta.get('avg_ctr', 0)}%")
-            lines.append(f"    CPL médio: R$ {meta.get('avg_cpl', 0):,.2f}")
+            lines.append(f"    CPL médio: R$ {self._fmt(meta.get('avg_cpl', 0))}")
 
             if meta.get("campaigns"):
                 lines.append("  Campanhas:")
                 for camp in meta["campaigns"][:5]:
                     lines.append(
-                        f"    • {camp['name']}: R${camp['spend']:,.2f} | {camp['leads']} leads | CPL R${camp.get('cpl', 0) or 0:,.2f}"
+                        f"    • {camp['name']}: R${self._fmt(camp['spend'])} | {camp['leads']} leads | CPL R${self._fmt(camp.get('cpl', 0) or 0)}"
                     )
 
         lines.append("")
@@ -154,8 +179,8 @@ class ReportFormatter:
         invest = consolidated.get("total_investment", 0)
         if invest > 0:
             lines.append("📈 ROI")
-            lines.append(f"  Receita: R$ {revenue:,.2f}")
-            lines.append(f"  Investimento: R$ {invest:,.2f}")
+            lines.append(f"  Receita: R$ {self._fmt(revenue)}")
+            lines.append(f"  Investimento: R$ {self._fmt(invest)}")
             lines.append(f"  ROI: {roi}%")
             lines.append("")
 
@@ -167,13 +192,21 @@ class ReportFormatter:
 
             comparisons = [
                 ("Leads", curr.get("total_leads", 0), prev.get("total_leads", 0)),
-                ("CPL", curr.get("cpl_consolidated", 0), prev.get("cpl_consolidated", 0)),
+                (
+                    "CPL",
+                    curr.get("cpl_consolidated", 0),
+                    prev.get("cpl_consolidated", 0),
+                ),
                 (
                     "Qualificação",
                     curr.get("qualification_rate", 0),
                     prev.get("qualification_rate", 0),
                 ),
-                ("Investimento", curr.get("total_investment", 0), prev.get("total_investment", 0)),
+                (
+                    "Investimento",
+                    curr.get("total_investment", 0),
+                    prev.get("total_investment", 0),
+                ),
             ]
 
             for label, current, previous in comparisons:
