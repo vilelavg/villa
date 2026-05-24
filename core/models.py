@@ -4,22 +4,31 @@ SQLAlchemy models + Pydantic schemas para validação.
 Cada tabela representa uma entidade central do sistema.
 """
 
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum as PyEnum
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import (
-    Column, String, Text, Integer, Float, Boolean, DateTime, Date,
-    ForeignKey, Enum, JSON, Index, UniqueConstraint, func,
-)
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
-from sqlalchemy.orm import relationship, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 from pydantic import BaseModel, Field
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
-
 
 # ═══════════════════════════════════════════════════════════════
 # ENUMS
@@ -115,26 +124,26 @@ class Client(Base):
     status: Mapped[str] = mapped_column(Enum(ClientStatus, values_callable=lambda x: [e.value for e in x], name='client_status'), default=ClientStatus.ACTIVE)
 
     # Dados do cliente
-    specialty: Mapped[Optional[str]] = mapped_column(String(200))        # Ex: implantes, lentes, ortodontia
-    client_type: Mapped[Optional[str]] = mapped_column(String(50))       # professor | clinica | autonomo
-    contact_name: Mapped[Optional[str]] = mapped_column(String(200))
-    contact_phone: Mapped[Optional[str]] = mapped_column(String(20))
-    contact_email: Mapped[Optional[str]] = mapped_column(String(255))
+    specialty: Mapped[str | None] = mapped_column(String(200))        # Ex: implantes, lentes, ortodontia
+    client_type: Mapped[str | None] = mapped_column(String(50))       # professor | clinica | autonomo
+    contact_name: Mapped[str | None] = mapped_column(String(200))
+    contact_phone: Mapped[str | None] = mapped_column(String(20))
+    contact_email: Mapped[str | None] = mapped_column(String(255))
 
     # IDs externos
-    kommo_pipeline_id: Mapped[Optional[int]] = mapped_column(Integer)
-    meta_ad_account_id: Mapped[Optional[str]] = mapped_column(String(50))
-    google_ads_id: Mapped[Optional[str]] = mapped_column(String(50))
-    inlead_form_id: Mapped[Optional[str]] = mapped_column(String(100))
-    whatsapp_number: Mapped[Optional[str]] = mapped_column(String(20))
+    kommo_pipeline_id: Mapped[int | None] = mapped_column(Integer)
+    meta_ad_account_id: Mapped[str | None] = mapped_column(String(50))
+    google_ads_id: Mapped[str | None] = mapped_column(String(50))
+    inlead_form_id: Mapped[str | None] = mapped_column(String(100))
+    whatsapp_number: Mapped[str | None] = mapped_column(String(20))
 
     # Configurações específicas
-    config: Mapped[Optional[dict]] = mapped_column(JSONB, default=dict)  # Thresholds, tom de voz, etc.
-    inlead_field_mapping: Mapped[Optional[dict]] = mapped_column(JSONB, default=dict)  # Mapeamento campos InLead
+    config: Mapped[dict | None] = mapped_column(JSONB, default=dict)  # Thresholds, tom de voz, etc.
+    inlead_field_mapping: Mapped[dict | None] = mapped_column(JSONB, default=dict)  # Mapeamento campos InLead
 
     # Contrato
-    contract_value: Mapped[Optional[float]] = mapped_column(Float)
-    contract_start: Mapped[Optional[date]] = mapped_column(Date)
+    contract_value: Mapped[float | None] = mapped_column(Float)
+    contract_start: Mapped[date | None] = mapped_column(Date)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -155,38 +164,38 @@ class Lead(Base):
     status: Mapped[str] = mapped_column(Enum(LeadStatus, values_callable=lambda x: [e.value for e in x], name='lead_status'), default=LeadStatus.NEW)
 
     # Dados do lead
-    name: Mapped[Optional[str]] = mapped_column(String(200))
-    phone: Mapped[Optional[str]] = mapped_column(String(20))
-    email: Mapped[Optional[str]] = mapped_column(String(255))
+    name: Mapped[str | None] = mapped_column(String(200))
+    phone: Mapped[str | None] = mapped_column(String(20))
+    email: Mapped[str | None] = mapped_column(String(255))
 
     # Rastreamento
-    source: Mapped[Optional[str]] = mapped_column(String(50))           # meta | google | organic | referral
-    utm_source: Mapped[Optional[str]] = mapped_column(String(100))
-    utm_medium: Mapped[Optional[str]] = mapped_column(String(100))
-    utm_campaign: Mapped[Optional[str]] = mapped_column(String(200))
-    utm_content: Mapped[Optional[str]] = mapped_column(String(200))
-    fbclid: Mapped[Optional[str]] = mapped_column(String(255))
-    gclid: Mapped[Optional[str]] = mapped_column(String(255))
+    source: Mapped[str | None] = mapped_column(String(50))           # meta | google | organic | referral
+    utm_source: Mapped[str | None] = mapped_column(String(100))
+    utm_medium: Mapped[str | None] = mapped_column(String(100))
+    utm_campaign: Mapped[str | None] = mapped_column(String(200))
+    utm_content: Mapped[str | None] = mapped_column(String(200))
+    fbclid: Mapped[str | None] = mapped_column(String(255))
+    gclid: Mapped[str | None] = mapped_column(String(255))
 
     # Qualificação
-    qualification_score: Mapped[Optional[float]] = mapped_column(Float)  # 0-100
-    qualification_notes: Mapped[Optional[str]] = mapped_column(Text)
-    qualified_by: Mapped[Optional[str]] = mapped_column(String(50))      # villa | human | chatbot
-    disqualification_reason: Mapped[Optional[str]] = mapped_column(Text)
+    qualification_score: Mapped[float | None] = mapped_column(Float)  # 0-100
+    qualification_notes: Mapped[str | None] = mapped_column(Text)
+    qualified_by: Mapped[str | None] = mapped_column(String(50))      # villa | human | chatbot
+    disqualification_reason: Mapped[str | None] = mapped_column(Text)
 
     # IDs externos
-    kommo_lead_id: Mapped[Optional[int]] = mapped_column(Integer)
-    inlead_submission_id: Mapped[Optional[str]] = mapped_column(String(100))
+    kommo_lead_id: Mapped[int | None] = mapped_column(Integer)
+    inlead_submission_id: Mapped[str | None] = mapped_column(String(100))
 
     # Dados brutos do InLead (campos aleatórios)
-    raw_data: Mapped[Optional[dict]] = mapped_column(JSONB, default=dict)
+    raw_data: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
     # Valor (se convertido)
-    deal_value: Mapped[Optional[float]] = mapped_column(Float)
+    deal_value: Mapped[float | None] = mapped_column(Float)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
-    converted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    converted_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     # Relationships
     client = relationship("Client", back_populates="leads")
@@ -208,15 +217,15 @@ class Conversation(Base):
 
     # Mensagens (array de objetos {role, content, timestamp})
     messages: Mapped[list] = mapped_column(JSONB, default=list)
-    summary: Mapped[Optional[str]] = mapped_column(Text)
+    summary: Mapped[str | None] = mapped_column(Text)
 
     # Controle
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     transferred_to_human: Mapped[bool] = mapped_column(Boolean, default=False)
-    transfer_reason: Mapped[Optional[str]] = mapped_column(Text)
+    transfer_reason: Mapped[str | None] = mapped_column(Text)
 
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     # Relationships
     lead = relationship("Lead", back_populates="conversations")
@@ -238,27 +247,27 @@ class Roteiro(Base):
     full_script: Mapped[str] = mapped_column(Text, nullable=False)       # Roteiro completo
 
     # Validação automática (tripla)
-    hook_score: Mapped[Optional[float]] = mapped_column(Float)           # 0-10
-    hook_feedback: Mapped[Optional[str]] = mapped_column(Text)
-    body_score: Mapped[Optional[float]] = mapped_column(Float)           # 0-10
-    body_feedback: Mapped[Optional[str]] = mapped_column(Text)
-    cta_score: Mapped[Optional[float]] = mapped_column(Float)            # 0-10
-    cta_feedback: Mapped[Optional[str]] = mapped_column(Text)
-    overall_score: Mapped[Optional[float]] = mapped_column(Float)        # Média
+    hook_score: Mapped[float | None] = mapped_column(Float)           # 0-10
+    hook_feedback: Mapped[str | None] = mapped_column(Text)
+    body_score: Mapped[float | None] = mapped_column(Float)           # 0-10
+    body_feedback: Mapped[str | None] = mapped_column(Text)
+    cta_score: Mapped[float | None] = mapped_column(Float)            # 0-10
+    cta_feedback: Mapped[str | None] = mapped_column(Text)
+    overall_score: Mapped[float | None] = mapped_column(Float)        # Média
 
     # Variações
-    hook_variations: Mapped[Optional[list]] = mapped_column(JSONB)       # Variações A/B de gancho
+    hook_variations: Mapped[list | None] = mapped_column(JSONB)       # Variações A/B de gancho
 
     # Contexto de geração
-    briefing: Mapped[Optional[dict]] = mapped_column(JSONB)              # Briefing usado para gerar
-    generation_params: Mapped[Optional[dict]] = mapped_column(JSONB)     # Modelo, temperatura, etc.
+    briefing: Mapped[dict | None] = mapped_column(JSONB)              # Briefing usado para gerar
+    generation_params: Mapped[dict | None] = mapped_column(JSONB)     # Modelo, temperatura, etc.
 
     # Feedback humano (retroalimentação)
-    human_approved: Mapped[Optional[bool]] = mapped_column(Boolean)
-    human_feedback: Mapped[Optional[str]] = mapped_column(Text)
+    human_approved: Mapped[bool | None] = mapped_column(Boolean)
+    human_feedback: Mapped[str | None] = mapped_column(Text)
 
     # Performance (preenchido depois via M4)
-    performance_data: Mapped[Optional[dict]] = mapped_column(JSONB)      # CTR, views, engagement
+    performance_data: Mapped[dict | None] = mapped_column(JSONB)      # CTR, views, engagement
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -281,19 +290,19 @@ class Campaign(Base):
     status: Mapped[str] = mapped_column(String(50), default="active")    # active | paused | completed
 
     # Métricas (atualizadas periodicamente pelo M2/M4)
-    metrics: Mapped[Optional[dict]] = mapped_column(JSONB, default=dict)
+    metrics: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     # Estrutura: {spend, impressions, clicks, ctr, cpl, cpa, roas, leads, conversions, frequency}
 
     # Histórico de métricas diárias
-    daily_metrics: Mapped[Optional[list]] = mapped_column(JSONB, default=list)
+    daily_metrics: Mapped[list | None] = mapped_column(JSONB, default=list)
     # Estrutura: [{date, spend, impressions, clicks, leads, conversions}]
 
     # Análise do Villa (M4)
-    villa_analysis: Mapped[Optional[str]] = mapped_column(Text)
-    villa_recommendations: Mapped[Optional[list]] = mapped_column(JSONB)
-    health_score: Mapped[Optional[float]] = mapped_column(Float)         # 0-100
+    villa_analysis: Mapped[str | None] = mapped_column(Text)
+    villa_recommendations: Mapped[list | None] = mapped_column(JSONB)
+    health_score: Mapped[float | None] = mapped_column(Float)         # 0-100
 
-    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
@@ -319,14 +328,14 @@ class Report(Base):
 
     # Conteúdo
     data: Mapped[dict] = mapped_column(JSONB, nullable=False)            # Dados consolidados
-    analysis: Mapped[Optional[str]] = mapped_column(Text)                # Análise do Villa
-    summary_whatsapp: Mapped[Optional[str]] = mapped_column(Text)        # Versão curta para WhatsApp
-    summary_pdf_url: Mapped[Optional[str]] = mapped_column(String(500))  # URL do PDF no Drive
+    analysis: Mapped[str | None] = mapped_column(Text)                # Análise do Villa
+    summary_whatsapp: Mapped[str | None] = mapped_column(Text)        # Versão curta para WhatsApp
+    summary_pdf_url: Mapped[str | None] = mapped_column(String(500))  # URL do PDF no Drive
 
     # Status de envio
     sent: Mapped[bool] = mapped_column(Boolean, default=False)
-    sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    sent_via: Mapped[Optional[str]] = mapped_column(String(20))          # whatsapp | email | drive
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+    sent_via: Mapped[str | None] = mapped_column(String(20))          # whatsapp | email | drive
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -349,11 +358,11 @@ class Appointment(Base):
     # Dados do agendamento
     scheduled_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     duration_minutes: Mapped[int] = mapped_column(Integer, default=30)
-    google_event_id: Mapped[Optional[str]] = mapped_column(String(200))
+    google_event_id: Mapped[str | None] = mapped_column(String(200))
 
     # Status
     status: Mapped[str] = mapped_column(String(20), default="scheduled")  # scheduled | confirmed | completed | no_show | cancelled
-    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
     reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False)
     capi_event_sent: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -371,27 +380,27 @@ class DecisionLog(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     module: Mapped[str] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'), nullable=False)
-    client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
+    client_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
 
     # O que o Villa decidiu
     action: Mapped[str] = mapped_column(String(200), nullable=False)     # Ex: "gerar_roteiro", "qualificar_lead"
-    input_data: Mapped[Optional[dict]] = mapped_column(JSONB)            # Dados de entrada
-    output_data: Mapped[Optional[dict]] = mapped_column(JSONB)           # Resultado gerado
-    reasoning: Mapped[Optional[str]] = mapped_column(Text)               # Por que tomou essa decisão
+    input_data: Mapped[dict | None] = mapped_column(JSONB)            # Dados de entrada
+    output_data: Mapped[dict | None] = mapped_column(JSONB)           # Resultado gerado
+    reasoning: Mapped[str | None] = mapped_column(Text)               # Por que tomou essa decisão
 
     # Resultado (preenchido depois)
-    outcome: Mapped[Optional[str]] = mapped_column(String(50))           # success | failure | partial | pending
-    outcome_details: Mapped[Optional[dict]] = mapped_column(JSONB)       # Métricas de resultado
-    human_feedback: Mapped[Optional[str]] = mapped_column(Text)          # Feedback de Caio/Thaís
+    outcome: Mapped[str | None] = mapped_column(String(50))           # success | failure | partial | pending
+    outcome_details: Mapped[dict | None] = mapped_column(JSONB)       # Métricas de resultado
+    human_feedback: Mapped[str | None] = mapped_column(Text)          # Feedback de Caio/Thaís
 
     # Tokens consumidos
-    tokens_input: Mapped[Optional[int]] = mapped_column(Integer)
-    tokens_output: Mapped[Optional[int]] = mapped_column(Integer)
-    model_used: Mapped[Optional[str]] = mapped_column(String(50))
-    cost_usd: Mapped[Optional[float]] = mapped_column(Float)
+    tokens_input: Mapped[int | None] = mapped_column(Integer)
+    tokens_output: Mapped[int | None] = mapped_column(Integer)
+    model_used: Mapped[str | None] = mapped_column(String(50))
+    cost_usd: Mapped[float | None] = mapped_column(Float)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    evaluated_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     __table_args__ = (
         Index("ix_decision_module_action", "module", "action"),
@@ -405,27 +414,27 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"))
-    module: Mapped[Optional[str]] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'))
+    user_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"))
+    module: Mapped[str | None] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'))
 
     # Ação
     action: Mapped[str] = mapped_column(String(200), nullable=False)
     risk_level: Mapped[str] = mapped_column(Enum(ActionRisk, values_callable=lambda x: [e.value for e in x], name='action_risk'), default=ActionRisk.LOW)
-    resource_type: Mapped[Optional[str]] = mapped_column(String(50))     # lead | campaign | roteiro | report
-    resource_id: Mapped[Optional[str]] = mapped_column(String(100))
+    resource_type: Mapped[str | None] = mapped_column(String(50))     # lead | campaign | roteiro | report
+    resource_id: Mapped[str | None] = mapped_column(String(100))
 
     # Detalhes
-    details: Mapped[Optional[dict]] = mapped_column(JSONB)
-    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    details: Mapped[dict | None] = mapped_column(JSONB)
+    ip_address: Mapped[str | None] = mapped_column(String(45))
 
     # Status
     success: Mapped[bool] = mapped_column(Boolean, default=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
 
     # Confirmação humana (para ações de alto risco)
     required_confirmation: Mapped[bool] = mapped_column(Boolean, default=False)
-    confirmed_by: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False))
-    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    confirmed_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -446,19 +455,19 @@ class KnowledgeDocument(Base):
     __tablename__ = "knowledge_documents"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
+    client_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
 
     # Metadata
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     doc_type: Mapped[str] = mapped_column(String(50), nullable=False)    # roteiro | relatorio | transcricao | briefing | faq
-    source: Mapped[Optional[str]] = mapped_column(String(200))           # Ex: "tactiq", "drive", "manual"
-    source_url: Mapped[Optional[str]] = mapped_column(String(500))
+    source: Mapped[str | None] = mapped_column(String(200))           # Ex: "tactiq", "drive", "manual"
+    source_url: Mapped[str | None] = mapped_column(String(500))
 
     # Conteúdo
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
     # Chunks para RAG (cada chunk tem seu embedding)
-    chunks: Mapped[Optional[list]] = mapped_column(JSONB)                # [{text, index}]
+    chunks: Mapped[list | None] = mapped_column(JSONB)                # [{text, index}]
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -493,11 +502,11 @@ class ModuleConfig(Base):
 
     # Configurações
     config: Mapped[dict] = mapped_column(JSONB, default=dict)            # Thresholds, parâmetros específicos
-    system_prompt: Mapped[Optional[str]] = mapped_column(Text)           # System prompt override
-    training_data: Mapped[Optional[dict]] = mapped_column(JSONB)         # Exemplos, templates, referências
+    system_prompt: Mapped[str | None] = mapped_column(Text)           # System prompt override
+    training_data: Mapped[dict | None] = mapped_column(JSONB)         # Exemplos, templates, referências
 
     # Controle
-    last_executed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    last_executed_at: Mapped[datetime | None] = mapped_column(DateTime)
     execution_count: Mapped[int] = mapped_column(Integer, default=0)
     error_count: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -510,7 +519,7 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
+    client_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
     module: Mapped[str] = mapped_column(Enum(ModuleCode, values_callable=lambda x: [e.value for e in x], name='module_code'), nullable=False)
 
     # Alerta
@@ -518,17 +527,17 @@ class Alert(Base):
     severity: Mapped[str] = mapped_column(String(20), nullable=False)     # info | warning | critical
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    suggested_action: Mapped[Optional[str]] = mapped_column(Text)
+    suggested_action: Mapped[str | None] = mapped_column(Text)
 
     # Dados do alerta
-    metric_name: Mapped[Optional[str]] = mapped_column(String(50))
-    metric_value: Mapped[Optional[float]] = mapped_column(Float)
-    threshold_value: Mapped[Optional[float]] = mapped_column(Float)
+    metric_name: Mapped[str | None] = mapped_column(String(50))
+    metric_value: Mapped[float | None] = mapped_column(Float)
+    threshold_value: Mapped[float | None] = mapped_column(Float)
 
     # Status
     acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
-    acknowledged_by: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False))
-    acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    acknowledged_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime)
     resolved: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Envio
@@ -555,25 +564,25 @@ class SDRConversation(Base):
     __tablename__ = "sdr_conversations"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
+    client_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
 
     # Identificação do lead e contexto
-    lead_name: Mapped[Optional[str]] = mapped_column(String(200))
-    course_name: Mapped[Optional[str]] = mapped_column(String(300))   # Curso sobre o qual a conversa é
-    lead_source: Mapped[Optional[str]] = mapped_column(String(100))   # "instagram", "whatsapp", "email"
+    lead_name: Mapped[str | None] = mapped_column(String(200))
+    course_name: Mapped[str | None] = mapped_column(String(300))   # Curso sobre o qual a conversa é
+    lead_source: Mapped[str | None] = mapped_column(String(100))   # "instagram", "whatsapp", "email"
 
     # Conversa em formato estruturado
     messages: Mapped[list] = mapped_column(JSONB, default=list)       # [{role, content, timestamp}]
-    raw_text: Mapped[Optional[str]] = mapped_column(Text)             # Texto bruto colado pela Mari
+    raw_text: Mapped[str | None] = mapped_column(Text)             # Texto bruto colado pela Mari
 
     # Resultado da conversa
-    outcome: Mapped[Optional[str]] = mapped_column(String(50))        # "won" | "lost" | "pending" | "no_show"
-    main_objection: Mapped[Optional[str]] = mapped_column(String(500))
+    outcome: Mapped[str | None] = mapped_column(String(50))        # "won" | "lost" | "pending" | "no_show"
+    main_objection: Mapped[str | None] = mapped_column(String(500))
 
     # Análise do Villa
-    objections_extracted: Mapped[Optional[list]] = mapped_column(JSONB)   # Objeções identificadas
-    patterns_extracted: Mapped[Optional[dict]] = mapped_column(JSONB)     # Padrões comportamentais
-    analyzed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    objections_extracted: Mapped[list | None] = mapped_column(JSONB)   # Objeções identificadas
+    patterns_extracted: Mapped[dict | None] = mapped_column(JSONB)     # Padrões comportamentais
+    analyzed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -593,19 +602,19 @@ class SDRObjection(Base):
     __tablename__ = "sdr_objections"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
-    client_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
+    client_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("clients.id"))
 
     # Classificação
-    course_name: Mapped[Optional[str]] = mapped_column(String(300))   # Curso ao qual a objeção pertence (None = geral)
+    course_name: Mapped[str | None] = mapped_column(String(300))   # Curso ao qual a objeção pertence (None = geral)
     category: Mapped[str] = mapped_column(String(100), nullable=False) # "preco" | "tempo" | "credibilidade" | "tecnica" | "urgencia"
     objection_text: Mapped[str] = mapped_column(Text, nullable=False)  # Objeção canônica
 
     # Variações identificadas
-    variations: Mapped[Optional[list]] = mapped_column(JSONB)          # Formas diferentes de dizer a mesma coisa
+    variations: Mapped[list | None] = mapped_column(JSONB)          # Formas diferentes de dizer a mesma coisa
 
     # Respostas
-    best_responses: Mapped[Optional[list]] = mapped_column(JSONB)      # [{text, won_rate, times_used}]
-    response_in_progress: Mapped[Optional[str]] = mapped_column(Text)  # Resposta ainda sendo validada
+    best_responses: Mapped[list | None] = mapped_column(JSONB)      # [{text, won_rate, times_used}]
+    response_in_progress: Mapped[str | None] = mapped_column(Text)  # Resposta ainda sendo validada
 
     # Estatísticas
     frequency: Mapped[int] = mapped_column(Integer, default=1)         # Quantas vezes apareceu
@@ -635,22 +644,22 @@ class SmoothMessage(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
 
     # Origem
-    member_phone: Mapped[Optional[str]] = mapped_column(String(30))
-    member_name: Mapped[Optional[str]] = mapped_column(String(200))
-    group_name: Mapped[Optional[str]] = mapped_column(String(200), default="Smooth Dentistry")
-    message_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    member_phone: Mapped[str | None] = mapped_column(String(30))
+    member_name: Mapped[str | None] = mapped_column(String(200))
+    group_name: Mapped[str | None] = mapped_column(String(200), default="Smooth Dentistry")
+    message_timestamp: Mapped[datetime | None] = mapped_column(DateTime)
 
     # Conteúdo
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    media_type: Mapped[Optional[str]] = mapped_column(String(30))     # "text" | "audio" | "image" | "video"
+    media_type: Mapped[str | None] = mapped_column(String(30))     # "text" | "audio" | "image" | "video"
     is_reply: Mapped[bool] = mapped_column(Boolean, default=False)
-    reply_to_id: Mapped[Optional[str]] = mapped_column(UUID(as_uuid=False))
+    reply_to_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False))
 
     # Classificação do Villa
-    category: Mapped[Optional[str]] = mapped_column(String(100))      # "dor" | "duvida" | "elogio" | "networking" | "conteudo"
-    sentiment: Mapped[Optional[str]] = mapped_column(String(20))       # "positive" | "negative" | "neutral"
-    topics: Mapped[Optional[list]] = mapped_column(JSONB)              # Tópicos identificados
-    pain_points: Mapped[Optional[list]] = mapped_column(JSONB)         # Dores identificadas
+    category: Mapped[str | None] = mapped_column(String(100))      # "dor" | "duvida" | "elogio" | "networking" | "conteudo"
+    sentiment: Mapped[str | None] = mapped_column(String(20))       # "positive" | "negative" | "neutral"
+    topics: Mapped[list | None] = mapped_column(JSONB)              # Tópicos identificados
+    pain_points: Mapped[list | None] = mapped_column(JSONB)         # Dores identificadas
     analyzed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -671,20 +680,20 @@ class SmoothMember(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
 
-    phone: Mapped[Optional[str]] = mapped_column(String(30), unique=True)
-    name: Mapped[Optional[str]] = mapped_column(String(200))
-    inferred_specialty: Mapped[Optional[str]] = mapped_column(String(200))  # Especialidade inferida
+    phone: Mapped[str | None] = mapped_column(String(30), unique=True)
+    name: Mapped[str | None] = mapped_column(String(200))
+    inferred_specialty: Mapped[str | None] = mapped_column(String(200))  # Especialidade inferida
 
     # Atividade
     message_count: Mapped[int] = mapped_column(Integer, default=0)
-    first_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    first_message_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime)
     engagement_score: Mapped[float] = mapped_column(Float, default=0.0)     # 0–100
 
     # Perfil inferido
-    main_topics: Mapped[Optional[list]] = mapped_column(JSONB)              # Temas que mais fala
-    main_pain_points: Mapped[Optional[list]] = mapped_column(JSONB)         # Dores mais frequentes
-    content_preferences: Mapped[Optional[dict]] = mapped_column(JSONB)      # Tipo de conteúdo que mais engaja
+    main_topics: Mapped[list | None] = mapped_column(JSONB)              # Temas que mais fala
+    main_pain_points: Mapped[list | None] = mapped_column(JSONB)         # Dores mais frequentes
+    content_preferences: Mapped[dict | None] = mapped_column(JSONB)      # Tipo de conteúdo que mais engaja
 
     # Flag para ações de marketing
     is_high_value: Mapped[bool] = mapped_column(Boolean, default=False)     # Membro muito ativo
@@ -708,23 +717,23 @@ class SmoothInsight(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
 
     # Período analisado
-    period_start: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    period_end: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    period_start: Mapped[datetime | None] = mapped_column(DateTime)
+    period_end: Mapped[datetime | None] = mapped_column(DateTime)
     messages_analyzed: Mapped[int] = mapped_column(Integer, default=0)
 
     # Resultados
     insight_type: Mapped[str] = mapped_column(String(100), nullable=False)   # "weekly_summary" | "pain_trends" | "member_activity"
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
-    data: Mapped[Optional[dict]] = mapped_column(JSONB)                      # Dados estruturados do insight
+    data: Mapped[dict | None] = mapped_column(JSONB)                      # Dados estruturados do insight
 
     # Top dados do período
-    top_topics: Mapped[Optional[list]] = mapped_column(JSONB)
-    top_pain_points: Mapped[Optional[list]] = mapped_column(JSONB)
-    top_members: Mapped[Optional[list]] = mapped_column(JSONB)
+    top_topics: Mapped[list | None] = mapped_column(JSONB)
+    top_pain_points: Mapped[list | None] = mapped_column(JSONB)
+    top_members: Mapped[list | None] = mapped_column(JSONB)
 
     # Para uso em campanhas
-    campaign_recommendations: Mapped[Optional[list]] = mapped_column(JSONB)
+    campaign_recommendations: Mapped[list | None] = mapped_column(JSONB)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

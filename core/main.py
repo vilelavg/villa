@@ -11,17 +11,16 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from core.config import settings
-from core.database import init_db, close_db
-from core.orchestrator import setup_orchestrator
+from api.routes.clients import router as clients_router
+from api.routes.commands import router as commands_router
 
 # Rotas
 from api.routes.health import router as health_router
-from api.routes.webhooks import router as webhooks_router
-from api.routes.commands import router as commands_router
 from api.routes.reports import router as reports_router
-from api.routes.clients import router as clients_router
-
+from api.routes.webhooks import router as webhooks_router
+from core.config import settings
+from core.database import close_db, init_db
+from core.orchestrator import setup_orchestrator
 
 # ── Variável global de uptime ──
 _start_time: float = 0.0
@@ -53,7 +52,7 @@ async def lifespan(app: FastAPI):
     print("   ✅ Orquestrador configurado")
 
     # Inicializar scheduler (rotinas automáticas)
-    from scheduler.setup import setup_scheduler, scheduler
+    from scheduler.setup import scheduler, setup_scheduler
     setup_scheduler()
     scheduler.start()
     print("   ✅ Scheduler iniciado (diária, semanal, monitores)")

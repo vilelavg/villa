@@ -5,7 +5,6 @@ Leitura de métricas de campanhas e envio de eventos de conversão.
 
 import hashlib
 import time
-from typing import Optional
 from datetime import date, timedelta
 
 import httpx
@@ -54,7 +53,7 @@ class MetaAdsClient:
         date_start: date,
         date_end: date,
         level: str = "campaign",
-        fields: Optional[list[str]] = None,
+        fields: list[str] | None = None,
     ) -> list[dict]:
         """
         Busca insights (métricas) de uma conta de anúncios.
@@ -126,7 +125,7 @@ class MetaAdsClient:
     async def get_campaigns(
         self,
         ad_account_id: str,
-        status_filter: Optional[list[str]] = None,
+        status_filter: list[str] | None = None,
     ) -> list[dict]:
         """Lista campanhas de uma conta."""
         params = {
@@ -147,13 +146,13 @@ class MetaAdsClient:
     async def send_conversion_event(
         self,
         event_name: str,
-        email: Optional[str] = None,
-        phone: Optional[str] = None,
-        value: Optional[float] = None,
+        email: str | None = None,
+        phone: str | None = None,
+        value: float | None = None,
         currency: str = "BRL",
-        fbclid: Optional[str] = None,
-        source_url: Optional[str] = None,
-        custom_data: Optional[dict] = None,
+        fbclid: str | None = None,
+        source_url: str | None = None,
+        custom_data: dict | None = None,
     ) -> dict:
         """
         Envia evento de conversão via Conversion API.
@@ -221,7 +220,7 @@ class MetaAdsClient:
         return 0
 
     @staticmethod
-    def extract_cpl(cost_per_action: list[dict]) -> Optional[float]:
+    def extract_cpl(cost_per_action: list[dict]) -> float | None:
         """Extrai CPL da lista de cost_per_action_type."""
         for cpa in cost_per_action or []:
             if cpa.get("action_type") == "lead":

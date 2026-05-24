@@ -4,8 +4,8 @@ Remove ou mascara dados pessoais para relatórios agregados.
 Garante conformidade com LGPD Art. 11 (dados de saúde).
 """
 
-import re
 import hashlib
+import re
 from typing import Any
 
 

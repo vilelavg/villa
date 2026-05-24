@@ -7,7 +7,6 @@ Usado para: tokens de API, dados de cartão, credenciais de clientes.
 import base64
 import hashlib
 import secrets
-from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -24,7 +23,7 @@ class EncryptionService:
         original = crypto.decrypt(encrypted)
     """
 
-    def __init__(self, key: Optional[str] = None):
+    def __init__(self, key: str | None = None):
         raw_key = key or settings.encryption_key
         # Fernet exige chave base64 de 32 bytes
         # Se a chave do .env não é Fernet válida, deriva uma

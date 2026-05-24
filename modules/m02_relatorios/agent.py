@@ -15,20 +15,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 from datetime import date, timedelta
-from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import (
-    Client, ClientStatus, Report, ModuleCode, User,
+    Client,
+    ClientStatus,
+    ModuleCode,
+    Report,
+    User,
 )
+from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
 from modules.m02_relatorios.collectors import DataCollector
 from modules.m02_relatorios.formatters import ReportFormatter
-from memory.feedback_loop import FeedbackLoop
-
 
 ANALYSIS_SYSTEM_PROMPT = """Você é o Villa, módulo de relatórios da WebXP Agency.
 
@@ -106,7 +108,7 @@ class M02Relatorios(BaseModule):
         self.collector = DataCollector.__new__(DataCollector)
         self.formatter = ReportFormatter()
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         """Retorna confiança de 0-1."""
         msg_lower = message.lower()
 
@@ -128,9 +130,9 @@ class M02Relatorios(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         """
         Gera relatório para um cliente ou para todos.
@@ -312,8 +314,8 @@ class M02Relatorios(BaseModule):
         }
 
     async def _resolve_client(
-        self, db: AsyncSession, slug: Optional[str], message: str
-    ) -> Optional[Client]:
+        self, db: AsyncSession, slug: str | None, message: str
+    ) -> Client | None:
         """Resolve cliente pelo slug ou nome no texto."""
         if slug:
             result = await db.execute(select(Client).where(Client.slug == slug))

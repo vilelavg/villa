@@ -14,11 +14,8 @@ Ações classificadas por risco:
     high   → confirmação humana (alterar campanha, excluir dado, enviar proposta)
 """
 
-from typing import Optional
-from functools import wraps
 
-from core.models import UserRole, ModuleCode, ActionRisk
-
+from core.models import ActionRisk, ModuleCode, UserRole
 
 # ═══════════════════════════════════════════════════════════════
 # MAPA DE PERMISSÕES
@@ -154,7 +151,7 @@ class PermissionService:
         self,
         role: UserRole,
         action: str,
-        module: Optional[ModuleCode] = None,
+        module: ModuleCode | None = None,
     ) -> ActionRisk:
         """
         Verifica permissão e retorna o nível de risco.

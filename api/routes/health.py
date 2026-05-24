@@ -4,14 +4,14 @@ Endpoint para monitoramento do status do sistema.
 Verifica: banco de dados, Redis, módulos ativos.
 """
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.database import get_db, check_db_health
-from core.models import ModuleConfig, HealthResponse
+from core.database import check_db_health, get_db
+from core.models import HealthResponse, ModuleConfig
 
 router = APIRouter()
 

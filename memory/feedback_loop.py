@@ -15,14 +15,13 @@ Quanto mais o Villa opera, mais dados de resultado e feedback acumula,
 e mais precisas ficam suas decisões futuras.
 """
 
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import ModuleCode
+from integrations.anthropic_client import claude
 from memory.decision_log import DecisionLogService
 from memory.knowledge_base import KnowledgeBaseService
-from integrations.anthropic_client import claude
 
 
 class FeedbackLoop:
@@ -79,11 +78,11 @@ class FeedbackLoop:
         self,
         module: ModuleCode,
         action: str,
-        client_slug: Optional[str] = None,
-        current_input: Optional[dict] = None,
+        client_slug: str | None = None,
+        current_input: dict | None = None,
         include_cross_client: bool = True,
         include_knowledge: bool = False,
-        knowledge_query: Optional[str] = None,
+        knowledge_query: str | None = None,
         max_examples: int = 5,
     ) -> dict:
         """
@@ -248,7 +247,7 @@ class FeedbackLoop:
         self,
         decision_id: str,
         outcome: str,
-        outcome_details: Optional[dict] = None,
+        outcome_details: dict | None = None,
     ) -> None:
         """Atalho para decisions.evaluate()."""
         await self.decisions.evaluate(decision_id, outcome, outcome_details)
@@ -267,7 +266,7 @@ class FeedbackLoop:
         action: str,
         input_data: dict,
         output_data: dict,
-        client_slug: Optional[str] = None,
+        client_slug: str | None = None,
     ) -> dict:
         """
         O Villa auto-avalia uma decisão comparando com padrões passados.

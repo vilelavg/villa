@@ -12,7 +12,6 @@ Todas as tarefas são async e usam sessões de banco independentes.
 """
 
 import logging
-from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger

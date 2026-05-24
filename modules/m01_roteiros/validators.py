@@ -12,16 +12,13 @@ O threshold padrão é 7.0/10 para cada componente.
 Configurável por cliente em clients.config.thresholds.
 """
 
-import json
-from typing import Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from integrations.anthropic_client import AnthropicClient, claude
 from modules.m01_roteiros.prompts import (
-    HOOK_VALIDATION_PROMPT,
     BODY_VALIDATION_PROMPT,
     CTA_VALIDATION_PROMPT,
+    HOOK_VALIDATION_PROMPT,
 )
 
 
@@ -44,7 +41,7 @@ class RoteiroValidator:
             # Usar result["feedback"] para refinar
     """
 
-    def __init__(self, client: Optional[AnthropicClient] = None):
+    def __init__(self, client: AnthropicClient | None = None):
         self.claude = client or claude
 
     async def validate_hook(

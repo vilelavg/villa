@@ -421,7 +421,6 @@ class TestResiliencia:
 
     async def test_timeout_nao_lanca_excecao(self, setup_m01):
         """TimeoutError também deve ser capturado."""
-        import asyncio
         client, db, patches = setup_m01
 
         with patches["feedback_loop"]:
@@ -431,7 +430,7 @@ class TestResiliencia:
             with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
                  patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
 
-                mock_ask.side_effect = asyncio.TimeoutError()
+                mock_ask.side_effect = TimeoutError()
                 mock_json.return_value = BRIEFING_RESPONSE
 
                 result = await module.execute(

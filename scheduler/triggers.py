@@ -14,13 +14,11 @@ pelo webhook receiver. Este arquivo define a LÓGICA de
 cada trigger — o que acontece quando o evento chega.
 """
 
-from typing import Optional
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import Client, Lead, LeadStatus, ModuleCode
+from core.models import Lead, LeadStatus, ModuleCode
 from security.audit_log import AuditService
 
 

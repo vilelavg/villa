@@ -5,9 +5,8 @@ Cérebro central do Villa — todos os módulos usam este cliente.
 """
 
 import time
-from typing import Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
 
-import anthropic
 from anthropic import AsyncAnthropic
 
 from core.config import settings
@@ -51,11 +50,11 @@ class AnthropicClient:
     async def ask(
         self,
         message: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         model: str = "primary",
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        conversation: Optional[list[dict]] = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        conversation: list[dict] | None = None,
     ) -> dict:
         """
         Envia uma mensagem ao Claude e retorna a resposta completa.
@@ -120,11 +119,11 @@ class AnthropicClient:
     async def stream(
         self,
         message: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         model: str = "primary",
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
-        conversation: Optional[list[dict]] = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        conversation: list[dict] | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Streaming de resposta do Claude. Retorna chunks de texto.
@@ -158,7 +157,7 @@ class AnthropicClient:
         self,
         text: str,
         categories: list[str],
-        system: Optional[str] = None,
+        system: str | None = None,
     ) -> dict:
         """
         Classificação rápida via Haiku.
@@ -197,7 +196,7 @@ class AnthropicClient:
     async def extract_json(
         self,
         message: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         model: str = "primary",
     ) -> dict:
         """

@@ -6,13 +6,12 @@ Toda ação do Villa passa por aqui.
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import AuditLog, ActionRisk, ModuleCode
+from core.models import ActionRisk, AuditLog, ModuleCode
 
 
 class AuditService:
@@ -37,15 +36,15 @@ class AuditService:
     async def log(
         self,
         action: str,
-        module: Optional[ModuleCode] = None,
-        user_id: Optional[str] = None,
+        module: ModuleCode | None = None,
+        user_id: str | None = None,
         risk_level: ActionRisk = ActionRisk.LOW,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        details: Optional[dict] = None,
-        ip_address: Optional[str] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        details: dict | None = None,
+        ip_address: str | None = None,
         success: bool = True,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
         required_confirmation: bool = False,
     ) -> AuditLog:
         """
@@ -92,8 +91,8 @@ class AuditService:
         module: ModuleCode,
         resource_type: str,
         resource_id: str,
-        details: Optional[dict] = None,
-        user_id: Optional[str] = None,
+        details: dict | None = None,
+        user_id: str | None = None,
     ) -> AuditLog:
         """
         Atalho para ações de alto risco.
@@ -114,7 +113,7 @@ class AuditService:
         self,
         audit_id: str,
         confirmed_by: str,
-    ) -> Optional[AuditLog]:
+    ) -> AuditLog | None:
         """
         Registra a confirmação humana de uma ação de alto risco.
         
@@ -137,8 +136,8 @@ class AuditService:
     async def get_recent(
         self,
         limit: int = 50,
-        module: Optional[ModuleCode] = None,
-        risk_level: Optional[ActionRisk] = None,
+        module: ModuleCode | None = None,
+        risk_level: ActionRisk | None = None,
     ) -> list[AuditLog]:
         """Busca registros recentes do audit log com filtros opcionais."""
         query = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
@@ -167,7 +166,7 @@ class AuditService:
 
     async def count_errors(
         self,
-        module: Optional[ModuleCode] = None,
+        module: ModuleCode | None = None,
         hours: int = 24,
     ) -> int:
         """Conta erros nas últimas N horas. Útil para monitoramento."""

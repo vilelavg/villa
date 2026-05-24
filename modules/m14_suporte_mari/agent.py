@@ -36,19 +36,20 @@ Periodicamente (scheduler semanal):
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import (
-    Client, ModuleCode, User,
-    SDRConversation, SDRObjection,
+    Client,
+    ModuleCode,
+    SDRConversation,
+    SDRObjection,
+    User,
 )
-from modules.base import BaseModule
 from memory.feedback_loop import FeedbackLoop
-
+from modules.base import BaseModule
 
 # ═══════════════════════════════════════════════════
 # SYSTEM PROMPTS
@@ -179,7 +180,7 @@ class M14SuporteMari(BaseModule):
         ],
     }
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
 
         # Evento direto do scheduler
@@ -201,9 +202,9 @@ class M14SuporteMari(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         context = context or {}
         msg_lower = message.lower()
@@ -231,7 +232,7 @@ class M14SuporteMari(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        client_slug: Optional[str],
+        client_slug: str | None,
         context: dict,
     ) -> dict:
         """
@@ -318,7 +319,7 @@ class M14SuporteMari(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        client_slug: Optional[str],
+        client_slug: str | None,
         context: dict,
     ) -> dict:
         """
@@ -391,7 +392,7 @@ class M14SuporteMari(BaseModule):
     # MODO ANALYZE — processa conversas não analisadas
     # ═══════════════════════════════════════════════════
 
-    async def _analyze_all(self, db: AsyncSession, client_slug: Optional[str]) -> dict:
+    async def _analyze_all(self, db: AsyncSession, client_slug: str | None) -> dict:
         """Processa todas as conversas ainda não analisadas e atualiza o banco."""
         result = await db.execute(
             select(SDRConversation)
@@ -431,7 +432,7 @@ class M14SuporteMari(BaseModule):
         }
 
     async def _analyze_single_conversation(
-        self, conv: SDRConversation, db: AsyncSession, client_slug: Optional[str]
+        self, conv: SDRConversation, db: AsyncSession, client_slug: str | None
     ) -> dict:
         """Analisa uma conversa e retorna objeções + outcome."""
         import json
@@ -461,7 +462,7 @@ class M14SuporteMari(BaseModule):
     # MODO REPORT — relatório executivo de objeções
     # ═══════════════════════════════════════════════════
 
-    async def _generate_report(self, db: AsyncSession, client_slug: Optional[str]) -> dict:
+    async def _generate_report(self, db: AsyncSession, client_slug: str | None) -> dict:
         """Gera relatório executivo do banco de objeções."""
         # Buscar objeções ordenadas por frequência
         result = await db.execute(
@@ -543,7 +544,7 @@ class M14SuporteMari(BaseModule):
                 return mode
         return "suggest"
 
-    def _extract_course(self, message: str) -> Optional[str]:
+    def _extract_course(self, message: str) -> str | None:
         """Extrai nome do curso do comando. Ex: '[Implante Avançado] lead disse:'"""
         import re
         match = re.search(r"\[(.+?)\]", message)
@@ -557,7 +558,7 @@ class M14SuporteMari(BaseModule):
                 return candidate
         return None
 
-    def _extract_lead_message(self, message: str) -> Optional[str]:
+    def _extract_lead_message(self, message: str) -> str | None:
         """Extrai o que o lead disse. Ex: 'lead disse: não tenho tempo'"""
         lower = message.lower()
         for marker in ["lead disse:", "lead falou:", "lead: ", "ele disse:", "ela disse:"]:
@@ -567,7 +568,7 @@ class M14SuporteMari(BaseModule):
         return None
 
     async def _get_similar_objections(
-        self, db: AsyncSession, lead_message: str, course_name: Optional[str], limit: int = 3
+        self, db: AsyncSession, lead_message: str, course_name: str | None, limit: int = 3
     ) -> list:
         """Busca objeções similares no banco (busca por keywords simples por ora)."""
         words = set(lead_message.lower().split())
@@ -610,9 +611,9 @@ class M14SuporteMari(BaseModule):
         self,
         db: AsyncSession,
         objections: list,
-        course_name: Optional[str],
+        course_name: str | None,
         outcome: str,
-        client_id: Optional[str],
+        client_id: str | None,
     ) -> None:
         """Atualiza ou cria entradas no banco de objeções."""
         for obj_data in objections:
@@ -662,7 +663,7 @@ class M14SuporteMari(BaseModule):
         await db.flush()
 
     def _format_suggestions_for_mari(
-        self, lead_message: str, course_name: Optional[str], suggestions: list
+        self, lead_message: str, course_name: str | None, suggestions: list
     ) -> str:
         lines = []
         if course_name:
@@ -683,7 +684,7 @@ class M14SuporteMari(BaseModule):
             counts[obj.category] = counts.get(obj.category, 0) + obj.frequency
         return dict(sorted(counts.items(), key=lambda x: x[1], reverse=True))
 
-    async def _resolve_client(self, db: AsyncSession, slug: Optional[str]) -> Optional[str]:
+    async def _resolve_client(self, db: AsyncSession, slug: str | None) -> str | None:
         if not slug:
             return None
         result = await db.execute(select(Client.id).where(Client.slug == slug))

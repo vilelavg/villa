@@ -7,13 +7,11 @@ POST /command → Orquestrador → Módulo correto → Resposta.
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.database import get_db
-from core.models import CommandRequest, CommandResponse, User, ModuleCode
-from core.orchestrator import orchestrator
 from api.middleware.auth import get_current_user
 from api.middleware.rate_limit import command_limiter
-from security.audit_log import AuditService
+from core.database import get_db
+from core.models import CommandRequest, CommandResponse, ModuleCode, User
+from core.orchestrator import orchestrator
 
 router = APIRouter()
 

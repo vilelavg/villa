@@ -4,18 +4,15 @@ Organização inteligente do Google Drive por cliente.
 Busca, versionamento, indexação para a base de conhecimento.
 """
 
-from typing import Optional
-from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import Client, ModuleCode, User
-from modules.base import BaseModule
+from integrations.google_drive import google_drive
 from memory.feedback_loop import FeedbackLoop
 from memory.knowledge_base import KnowledgeBaseService
-from integrations.google_drive import google_drive
-
+from modules.base import BaseModule
 
 SEARCH_PROMPT = """Interprete o que o usuário está buscando e gere termos de busca.
 
@@ -38,14 +35,14 @@ class M09Arquivos(BaseModule):
 
     KEYWORDS = ["arquivo", "arquivos", "documento", "documentos", "drive", "pasta", "upload", "download", "buscar arquivo", "onde está", "onde tá", "briefing", "criativo"]
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
         if matches >= 2: return 0.8
         if matches >= 1: return 0.5
         return 0.0
 
-    async def execute(self, message: str, db: AsyncSession, user: Optional[User] = None, client_slug: Optional[str] = None, context: Optional[dict] = None) -> dict:
+    async def execute(self, message: str, db: AsyncSession, user: User | None = None, client_slug: str | None = None, context: dict | None = None) -> dict:
         feedback_loop = FeedbackLoop(db)
 
         # Interpretar o que o usuário quer
@@ -107,7 +104,7 @@ class M09Arquivos(BaseModule):
             "actions_taken": ["drive_search_complete"],
         }
 
-    async def index_file_to_knowledge(self, db: AsyncSession, file_id: str, title: str, doc_type: str, client_slug: Optional[str] = None) -> dict:
+    async def index_file_to_knowledge(self, db: AsyncSession, file_id: str, title: str, doc_type: str, client_slug: str | None = None) -> dict:
         """Baixa arquivo do Drive e indexa na base de conhecimento."""
         kb = KnowledgeBaseService(db)
 

@@ -5,18 +5,15 @@ sugere otimizações baseadas em dados e feedback loop.
 """
 
 from datetime import date, timedelta
-from typing import Optional
-from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import Client, Campaign, ModuleCode, User
-from modules.base import BaseModule
-from memory.feedback_loop import FeedbackLoop
-from integrations.meta_ads import meta_ads
+from core.models import Campaign, Client, ModuleCode, User
 from integrations.google_ads import google_ads
-
+from integrations.meta_ads import meta_ads
+from memory.feedback_loop import FeedbackLoop
+from modules.base import BaseModule
 
 ANALYSIS_SYSTEM = """Você é o Villa, módulo de análise de campanhas da WebXP Agency.
 
@@ -82,7 +79,7 @@ class M04Campanhas(BaseModule):
         "budget", "orçamento", "orcamento",
     ]
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
         if context and "campanhas" in context.get("event_type", ""):
             return 0.9
@@ -96,9 +93,9 @@ class M04Campanhas(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         feedback_loop = FeedbackLoop(db)
 

@@ -10,16 +10,15 @@ Sequência:
     5. Resumo de custos de API da semana
 """
 
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.models import Client, ClientStatus, ModuleCode, Report
 from core.database import get_db_session
-from security.audit_log import AuditService
+from core.models import Client, ClientStatus, ModuleCode, Report
 from memory.decision_log import DecisionLogService
+from security.audit_log import AuditService
 
 
 async def run_weekly_routine() -> dict:
@@ -143,7 +142,7 @@ async def _retroalimentacao_analysis(db: AsyncSession) -> dict:
         - Taxa de show está caindo? Em quais clientes?
         - Quais objeções comerciais podem melhorar o marketing?
     """
-    from core.models import Lead, LeadStatus, Campaign
+    from core.models import Lead, LeadStatus
 
     week_start = datetime.utcnow() - timedelta(days=7)
 

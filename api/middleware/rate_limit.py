@@ -4,11 +4,9 @@ Limita requisições por usuário/IP usando Redis.
 Protege a API contra abuso e controla custo da Anthropic API.
 """
 
-from datetime import datetime
-from typing import Optional
 
-from fastapi import HTTPException, Request, status
 import redis.asyncio as aioredis
+from fastapi import HTTPException, Request, status
 
 from core.config import settings
 
@@ -34,7 +32,7 @@ class RateLimiter:
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.key_prefix = key_prefix
-        self._redis: Optional[aioredis.Redis] = None
+        self._redis: aioredis.Redis | None = None
 
     async def _get_redis(self) -> aioredis.Redis:
         """Obtém conexão com Redis (lazy initialization)."""

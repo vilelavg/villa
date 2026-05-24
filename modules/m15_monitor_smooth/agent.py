@@ -39,19 +39,20 @@ O módulo está construído e pronto. Aguarda:
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import (
-    ModuleCode, User,
-    SmoothMessage, SmoothMember, SmoothInsight,
+    ModuleCode,
+    SmoothInsight,
+    SmoothMember,
+    SmoothMessage,
+    User,
 )
-from modules.base import BaseModule
 from memory.feedback_loop import FeedbackLoop
-
+from modules.base import BaseModule
 
 # ═══════════════════════════════════════════════════
 # SYSTEM PROMPTS
@@ -144,7 +145,7 @@ class M15MonitorSmooth(BaseModule):
         "monitoramento", "inteligência comunidade",
     ]
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         # Webhook de mensagem do grupo
         if context and context.get("event_type") == "smooth_group_message":
             return 0.99
@@ -169,9 +170,9 @@ class M15MonitorSmooth(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         context = context or {}
         event_type = context.get("event_type", "")

@@ -29,26 +29,29 @@ Fluxo original (quando ativo):
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import (
-    Client, Lead, LeadStatus, Conversation, ModuleCode, User,
+    Client,
+    Conversation,
+    Lead,
+    LeadStatus,
+    ModuleCode,
+    User,
 )
+from integrations.kommo import kommo
+from integrations.whatsapp import whatsapp
+from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
 from modules.m03_qualificacao.prompts import (
-    SYSTEM_PROMPT,
-    QUALIFICATION_PROMPT,
     FIRST_CONTACT_PROMPT,
-    FOLLOW_UP_PROMPT,
+    QUALIFICATION_PROMPT,
+    SYSTEM_PROMPT,
 )
 from modules.m03_qualificacao.scoring import LeadScorer
-from memory.feedback_loop import FeedbackLoop
-from integrations.whatsapp import whatsapp
-from integrations.kommo import kommo
 
 
 class M03Qualificacao(BaseModule):
@@ -81,7 +84,7 @@ class M03Qualificacao(BaseModule):
         super().__init__()
         self.scorer = LeadScorer()
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         """Retorna confiança de 0-1. Zero enquanto em STAND_BY."""
         # Eventos de webhook têm prioridade máxima
         if context:
@@ -104,9 +107,9 @@ class M03Qualificacao(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         """
         Ponto de entrada do módulo. Roteia para a ação correta:

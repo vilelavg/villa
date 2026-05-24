@@ -16,15 +16,19 @@ Monitores ativos:
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.models import (
-    Client, ClientStatus, Campaign, Lead, LeadStatus,
-    Alert, ModuleCode, ModuleConfig, Appointment,
-)
 from core.database import get_db_session
+from core.models import (
+    Alert,
+    Appointment,
+    Campaign,
+    Client,
+    Lead,
+    LeadStatus,
+    ModuleCode,
+)
 from security.audit_log import AuditService
 
 
@@ -282,7 +286,7 @@ async def _monitor_module_health(db: AsyncSession) -> dict:
             module=ModuleCode.M12_ALERTAS,
             alert_type="module_errors",
             severity="critical",
-            title=f"Módulos com erros frequentes",
+            title="Módulos com erros frequentes",
             message=f"Módulos com mais de 5 erros na última hora: {modules_text}",
             suggested_action="Verificar logs de erro dos módulos afetados. Possível problema de integração ou API fora do ar.",
         )

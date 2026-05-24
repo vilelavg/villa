@@ -10,15 +10,12 @@ O Villa usa embeddings para:
     - Conectar transcrições de reuniões a contextos de clientes
 """
 
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import select, text, delete
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import KnowledgeDocument, KnowledgeEmbedding
-from integrations.anthropic_client import claude
-
 
 # ── Configurações ──
 CHUNK_SIZE = 500          # Caracteres por chunk
@@ -122,9 +119,9 @@ class EmbeddingService:
         title: str,
         content: str,
         doc_type: str,
-        client_slug: Optional[str] = None,
-        source: Optional[str] = None,
-        source_url: Optional[str] = None,
+        client_slug: str | None = None,
+        source: str | None = None,
+        source_url: str | None = None,
     ) -> dict:
         """
         Cria um documento E indexa em uma operação.
@@ -170,8 +167,8 @@ class EmbeddingService:
         self,
         query: str,
         limit: int = 5,
-        client_id: Optional[str] = None,
-        doc_type: Optional[str] = None,
+        client_id: str | None = None,
+        doc_type: str | None = None,
         similarity_threshold: float = 0.3,
     ) -> list[dict]:
         """
@@ -353,8 +350,6 @@ class EmbeddingService:
         para melhor custo-benefício. Por ora, usamos uma abordagem
         baseada em hash semântico que funciona com pgvector.
         """
-        import hashlib
-        import struct
 
         embeddings = []
         for text in texts:

@@ -13,14 +13,11 @@ Regras:
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
-from core.models import Lead, LeadStatus, Conversation, KnowledgeDocument
 from core.database import get_db_session
+from core.models import Conversation, KnowledgeDocument, Lead, LeadStatus, ModuleCode
 from security.audit_log import AuditService
-from core.models import ModuleCode
-
 
 # Períodos de retenção em dias
 RETENTION_DAYS = {

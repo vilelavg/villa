@@ -9,17 +9,16 @@ Fontes:
     - InLead (leads captados, fluxos completos)
 """
 
-from datetime import date, timedelta
-from typing import Optional
+from datetime import date
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import Client, Lead, LeadStatus, Campaign, Appointment
 from core.config import settings
-from integrations.meta_ads import meta_ads
+from core.models import Appointment, Client, Lead, LeadStatus
 from integrations.google_ads import google_ads
 from integrations.kommo import kommo
+from integrations.meta_ads import meta_ads
 
 
 class DataCollector:

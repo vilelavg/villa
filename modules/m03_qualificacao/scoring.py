@@ -15,15 +15,11 @@ Classificação:
     0-39:   Desqualificado
 """
 
-from typing import Optional
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import Client, Lead, LeadStatus
 from integrations.anthropic_client import claude
 from modules.m03_qualificacao.prompts import SCORING_PROMPT
-
 
 # Thresholds de qualificação
 SCORE_QUALIFIED = 80

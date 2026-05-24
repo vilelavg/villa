@@ -12,13 +12,12 @@ e seus resultados antes de tomar novas decisões.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import select, update, func, and_, or_, desc
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import DecisionLog, ModuleCode, Client
+from core.models import Client, DecisionLog, ModuleCode
 
 
 class DecisionLogService:
@@ -61,14 +60,14 @@ class DecisionLogService:
         self,
         module: ModuleCode,
         action: str,
-        input_data: Optional[dict] = None,
-        output_data: Optional[dict] = None,
-        reasoning: Optional[str] = None,
-        client_slug: Optional[str] = None,
-        tokens_input: Optional[int] = None,
-        tokens_output: Optional[int] = None,
-        model_used: Optional[str] = None,
-        cost_usd: Optional[float] = None,
+        input_data: dict | None = None,
+        output_data: dict | None = None,
+        reasoning: str | None = None,
+        client_slug: str | None = None,
+        tokens_input: int | None = None,
+        tokens_output: int | None = None,
+        model_used: str | None = None,
+        cost_usd: float | None = None,
     ) -> str:
         """
         Registra uma decisão. Retorna o ID para avaliação posterior.
@@ -121,7 +120,7 @@ class DecisionLogService:
         self,
         decision_id: str,
         outcome: str,
-        outcome_details: Optional[dict] = None,
+        outcome_details: dict | None = None,
     ) -> None:
         """
         Registra o resultado de uma decisão.
@@ -176,8 +175,8 @@ class DecisionLogService:
         self,
         module: ModuleCode,
         action: str,
-        client_slug: Optional[str] = None,
-        outcome: Optional[str] = None,
+        client_slug: str | None = None,
+        outcome: str | None = None,
         with_feedback_only: bool = False,
         limit: int = 10,
     ) -> list[dict]:
@@ -242,7 +241,7 @@ class DecisionLogService:
     async def get_success_rate(
         self,
         module: ModuleCode,
-        action: Optional[str] = None,
+        action: str | None = None,
         days: int = 30,
     ) -> dict:
         """
@@ -284,7 +283,7 @@ class DecisionLogService:
     async def get_client_patterns(
         self,
         client_slug: str,
-        module: Optional[ModuleCode] = None,
+        module: ModuleCode | None = None,
         limit: int = 20,
     ) -> dict:
         """
@@ -394,7 +393,7 @@ class DecisionLogService:
 
     async def get_pending_evaluations(
         self,
-        module: Optional[ModuleCode] = None,
+        module: ModuleCode | None = None,
         days_old: int = 3,
         limit: int = 20,
     ) -> list[dict]:

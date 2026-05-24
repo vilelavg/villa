@@ -6,16 +6,13 @@ Define a interface padrão: execute, can_handle, get_status.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.models import ModuleCode, ModuleConfig, DecisionLog, User
+from core.models import DecisionLog, ModuleCode, ModuleConfig, User
 from integrations.anthropic_client import AnthropicClient, claude
-from security.audit_log import AuditService
 
 
 class BaseModule(ABC):
@@ -54,9 +51,9 @@ class BaseModule(ABC):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         """
         Executa a tarefa principal do módulo.
@@ -74,7 +71,7 @@ class BaseModule(ABC):
         ...
 
     @abstractmethod
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         """
         Retorna a confiança (0.0 a 1.0) de que este módulo
         é o correto para lidar com o comando/evento.
@@ -99,9 +96,9 @@ class BaseModule(ABC):
         self,
         message: str,
         db: AsyncSession,
-        system_override: Optional[str] = None,
+        system_override: str | None = None,
         model: str = "primary",
-        client_slug: Optional[str] = None,
+        client_slug: str | None = None,
         **kwargs,
     ) -> dict:
         """
@@ -144,7 +141,7 @@ class BaseModule(ABC):
             return config.config or {}
         return {}
 
-    async def get_training_data(self, db: AsyncSession) -> Optional[dict]:
+    async def get_training_data(self, db: AsyncSession) -> dict | None:
         """Carrega dados de treinamento (exemplos, templates, referências)."""
         result = await db.execute(
             select(ModuleConfig).where(ModuleConfig.module == self.code)
@@ -201,9 +198,9 @@ class BaseModule(ABC):
     async def get_past_decisions(
         self,
         db: AsyncSession,
-        action: Optional[str] = None,
-        client_slug: Optional[str] = None,
-        outcome: Optional[str] = None,
+        action: str | None = None,
+        client_slug: str | None = None,
+        outcome: str | None = None,
         limit: int = 10,
     ) -> list[dict]:
         """
@@ -272,14 +269,14 @@ class BaseModule(ABC):
         self,
         db: AsyncSession,
         action: str,
-        input_data: Optional[dict] = None,
-        output_data: Optional[dict] = None,
-        reasoning: Optional[str] = None,
-        tokens_input: Optional[int] = None,
-        tokens_output: Optional[int] = None,
-        model_used: Optional[str] = None,
-        cost_usd: Optional[float] = None,
-        client_slug: Optional[str] = None,
+        input_data: dict | None = None,
+        output_data: dict | None = None,
+        reasoning: str | None = None,
+        tokens_input: int | None = None,
+        tokens_output: int | None = None,
+        model_used: str | None = None,
+        cost_usd: float | None = None,
+        client_slug: str | None = None,
     ) -> None:
         """Registra uma decisão no feedback loop."""
         # Resolver client_id a partir do slug

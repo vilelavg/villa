@@ -18,18 +18,16 @@ pacientes — não WebXP atendendo seus próprios clientes.
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import Client, Lead, Conversation, ModuleCode, User
-from modules.base import BaseModule
+from core.models import Client, Conversation, Lead, ModuleCode, User
+from integrations.whatsapp import whatsapp
 from memory.feedback_loop import FeedbackLoop
 from memory.knowledge_base import KnowledgeBaseService
-from integrations.whatsapp import whatsapp
-
+from modules.base import BaseModule
 
 SYSTEM_PROMPT = """Você é o Villa, módulo de atendimento da WebXP Agency.
 
@@ -91,7 +89,7 @@ class M06Atendimento(BaseModule):
         "faq",
     ]
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         if context and context.get("event_type") == "whatsapp_message":
             # Se o lead já está qualificado, M06 tem prioridade sobre M03
             payload = context.get("payload", {})
@@ -108,9 +106,9 @@ class M06Atendimento(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         if self.STAND_BY:
             return {

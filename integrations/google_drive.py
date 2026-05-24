@@ -4,7 +4,6 @@ Upload, download e busca de arquivos.
 Usado para relatórios PDF, criativos, documentos de clientes.
 """
 
-from typing import Optional
 
 import httpx
 
@@ -21,13 +20,15 @@ class GoogleDriveClient:
     UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3"
 
     def __init__(self):
-        self._token: Optional[str] = None
+        self._token: str | None = None
         self._token_expires: float = 0
         self._client = httpx.AsyncClient(timeout=60.0)
 
     async def _get_token(self) -> str:
         """Obtém access token via Service Account JWT."""
-        import json, time
+        import json
+        import time
+
         from jose import jwt as jose_jwt
 
         if self._token and time.time() < self._token_expires:
@@ -65,8 +66,8 @@ class GoogleDriveClient:
     async def search_files(
         self,
         query: str,
-        folder_id: Optional[str] = None,
-        mime_type: Optional[str] = None,
+        folder_id: str | None = None,
+        mime_type: str | None = None,
         limit: int = 20,
     ) -> list[dict]:
         """
@@ -97,7 +98,7 @@ class GoogleDriveClient:
         file_content: bytes,
         filename: str,
         mime_type: str,
-        folder_id: Optional[str] = None,
+        folder_id: str | None = None,
     ) -> dict:
         """Upload de arquivo para o Drive."""
         import json
@@ -128,7 +129,7 @@ class GoogleDriveClient:
         response.raise_for_status()
         return response.content
 
-    async def create_folder(self, name: str, parent_id: Optional[str] = None) -> dict:
+    async def create_folder(self, name: str, parent_id: str | None = None) -> dict:
         """Cria uma pasta no Drive."""
         metadata = {"name": name, "mimeType": "application/vnd.google-apps.folder"}
         if parent_id:

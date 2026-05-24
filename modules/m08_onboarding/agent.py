@@ -5,16 +5,13 @@ Checklist, cobrança de prazos, análise preliminar de mapeamento.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
-from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import Client, ClientStatus, ModuleCode, User
-from modules.base import BaseModule
+from core.models import Client, ModuleCode, User
 from memory.feedback_loop import FeedbackLoop
-
+from modules.base import BaseModule
 
 ONBOARDING_STEPS = [
     {"step": 1, "name": "Contrato assinado", "owner": "comercial", "sla_days": 0},
@@ -58,14 +55,14 @@ class M08Onboarding(BaseModule):
 
     KEYWORDS = ["onboarding", "novo cliente", "ativar cliente", "mapeamento", "checklist", "ativação", "ativacao"]
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
         if matches >= 2: return 0.85
         if matches >= 1: return 0.6
         return 0.0
 
-    async def execute(self, message: str, db: AsyncSession, user: Optional[User] = None, client_slug: Optional[str] = None, context: Optional[dict] = None) -> dict:
+    async def execute(self, message: str, db: AsyncSession, user: User | None = None, client_slug: str | None = None, context: dict | None = None) -> dict:
         feedback_loop = FeedbackLoop(db)
 
         client = await self._resolve_client(db, client_slug, message)

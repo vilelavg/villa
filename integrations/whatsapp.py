@@ -4,7 +4,6 @@ Envio de mensagens, templates, mídia e reações.
 Usa a Cloud API oficial da Meta.
 """
 
-from typing import Optional
 
 import httpx
 
@@ -72,7 +71,7 @@ class WhatsAppClient:
         self,
         to: str,
         template_name: str,
-        parameters: Optional[dict[str, str]] = None,
+        parameters: dict[str, str] | None = None,
         language: str = "pt_BR",
     ) -> dict:
         """
@@ -118,8 +117,8 @@ class WhatsAppClient:
         to: str,
         body: str,
         buttons: list[dict],
-        header: Optional[str] = None,
-        footer: Optional[str] = None,
+        header: str | None = None,
+        footer: str | None = None,
     ) -> dict:
         """
         Envia mensagem com botões de resposta rápida.
@@ -164,8 +163,8 @@ class WhatsAppClient:
         body: str,
         button_text: str,
         sections: list[dict],
-        header: Optional[str] = None,
-        footer: Optional[str] = None,
+        header: str | None = None,
+        footer: str | None = None,
     ) -> dict:
         """
         Envia mensagem com lista de opções.
@@ -204,8 +203,8 @@ class WhatsAppClient:
         self,
         to: str,
         document_url: str,
-        caption: Optional[str] = None,
-        filename: Optional[str] = None,
+        caption: str | None = None,
+        filename: str | None = None,
     ) -> dict:
         """Envia documento (PDF, XLSX, etc.) via URL."""
         doc = {"link": document_url}
@@ -228,7 +227,7 @@ class WhatsAppClient:
         self,
         to: str,
         image_url: str,
-        caption: Optional[str] = None,
+        caption: str | None = None,
     ) -> dict:
         """Envia imagem via URL."""
         image = {"link": image_url}

@@ -17,19 +17,17 @@ bloqueados.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import Client, Lead, Appointment, ModuleCode, User
-from modules.base import BaseModule
-from memory.feedback_loop import FeedbackLoop
+from core.models import Appointment, Client, Lead, ModuleCode, User
 from integrations.google_calendar import google_calendar
-from integrations.whatsapp import whatsapp
 from integrations.kommo import kommo
-
+from integrations.whatsapp import whatsapp
+from memory.feedback_loop import FeedbackLoop
+from modules.base import BaseModule
 
 SYSTEM_PROMPT = """Você é o Villa, módulo de agendamento da WebXP Agency.
 
@@ -83,7 +81,7 @@ class M05Agendamento(BaseModule):
         "calendar", "calendário",
     ]
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
         if context and "agendamento" in context.get("event_type", ""):
             return 0.9
@@ -96,9 +94,9 @@ class M05Agendamento(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         if self.STAND_BY:
             return {
@@ -157,7 +155,7 @@ class M05Agendamento(BaseModule):
         # Selecionar os 3 melhores horários (manhã, tarde, outro dia)
         best_slots = slots[:3] if len(slots) >= 3 else slots
         slots_text = "\n".join(
-            f"{i+1}. {s['date']} às {s['start'].split('T')[1][:5]}" 
+            f"{i+1}. {s['date']} às {s['start'].split('T')[1][:5]}"
             for i, s in enumerate(best_slots)
         )
 

@@ -5,7 +5,6 @@ Usado pelo módulo M5 (Agendamento).
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 import httpx
 
@@ -25,7 +24,7 @@ class GoogleCalendarClient:
     BASE_URL = "https://www.googleapis.com/calendar/v3"
 
     def __init__(self):
-        self._token: Optional[str] = None
+        self._token: str | None = None
         self._token_expires: float = 0
         self._client = httpx.AsyncClient(timeout=30.0)
 
@@ -33,6 +32,7 @@ class GoogleCalendarClient:
         """Obtém access token via Service Account JWT."""
         import json
         import time
+
         from jose import jwt as jose_jwt
 
         if self._token and time.time() < self._token_expires:
@@ -145,9 +145,9 @@ class GoogleCalendarClient:
         start: datetime,
         end: datetime,
         summary: str,
-        description: Optional[str] = None,
-        attendees: Optional[list[str]] = None,
-        reminders_minutes: Optional[list[int]] = None,
+        description: str | None = None,
+        attendees: list[str] | None = None,
+        reminders_minutes: list[int] | None = None,
     ) -> dict:
         """Cria um evento no calendário."""
         event = {

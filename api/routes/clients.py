@@ -10,16 +10,15 @@ Rotas:
 """
 
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.middleware.auth import get_current_user, require_role
 from core.database import get_db
 from core.models import Client, ClientStatus, User, UserRole
-from api.middleware.auth import get_current_user, require_role
 
 router = APIRouter()
 
@@ -32,23 +31,23 @@ class ClientCreate(BaseModel):
     """Payload para criação de cliente."""
     name: str = Field(..., min_length=2, max_length=200, description="Nome do cliente")
     slug: str = Field(..., min_length=2, max_length=100, description="Identificador único (ex: webxp, ottoboni)")
-    specialty: Optional[str] = Field(None, max_length=200, description="Especialidade (ex: implantes, marketing odontologico)")
-    client_type: Optional[str] = Field(None, max_length=50, description="professor | clinica | autonomo | agencia")
-    contact_name: Optional[str] = Field(None, max_length=200, description="Nome do contato principal")
-    contact_phone: Optional[str] = Field(None, max_length=20, description="Telefone do contato")
-    contact_email: Optional[str] = Field(None, max_length=255, description="Email do contato")
+    specialty: str | None = Field(None, max_length=200, description="Especialidade (ex: implantes, marketing odontologico)")
+    client_type: str | None = Field(None, max_length=50, description="professor | clinica | autonomo | agencia")
+    contact_name: str | None = Field(None, max_length=200, description="Nome do contato principal")
+    contact_phone: str | None = Field(None, max_length=20, description="Telefone do contato")
+    contact_email: str | None = Field(None, max_length=255, description="Email do contato")
 
     # IDs externos (opcionais — preenchidos conforme integrações ficam ativas)
-    kommo_pipeline_id: Optional[int] = Field(None, description="ID do pipeline no Kommo CRM")
-    meta_ad_account_id: Optional[str] = Field(None, max_length=50, description="ID da conta de anúncios no Meta")
-    google_ads_id: Optional[str] = Field(None, max_length=50, description="Customer ID Google Ads")
-    inlead_form_id: Optional[str] = Field(None, max_length=100, description="ID do formulário no InLead")
-    whatsapp_number: Optional[str] = Field(None, max_length=20, description="Número WhatsApp do cliente")
+    kommo_pipeline_id: int | None = Field(None, description="ID do pipeline no Kommo CRM")
+    meta_ad_account_id: str | None = Field(None, max_length=50, description="ID da conta de anúncios no Meta")
+    google_ads_id: str | None = Field(None, max_length=50, description="Customer ID Google Ads")
+    inlead_form_id: str | None = Field(None, max_length=100, description="ID do formulário no InLead")
+    whatsapp_number: str | None = Field(None, max_length=20, description="Número WhatsApp do cliente")
 
     # Configurações
-    config: Optional[dict] = Field(default_factory=dict, description="Configurações específicas (thresholds, tom de voz)")
-    contract_value: Optional[float] = Field(None, description="Valor mensal do contrato")
-    contract_start: Optional[date] = Field(None, description="Data de início do contrato")
+    config: dict | None = Field(default_factory=dict, description="Configurações específicas (thresholds, tom de voz)")
+    contract_value: float | None = Field(None, description="Valor mensal do contrato")
+    contract_start: date | None = Field(None, description="Data de início do contrato")
 
     @field_validator("slug")
     @classmethod
@@ -63,21 +62,21 @@ class ClientCreate(BaseModel):
 
 class ClientUpdate(BaseModel):
     """Payload para atualização parcial de cliente."""
-    name: Optional[str] = Field(None, min_length=2, max_length=200)
-    specialty: Optional[str] = Field(None, max_length=200)
-    client_type: Optional[str] = Field(None, max_length=50)
-    contact_name: Optional[str] = Field(None, max_length=200)
-    contact_phone: Optional[str] = Field(None, max_length=20)
-    contact_email: Optional[str] = Field(None, max_length=255)
-    kommo_pipeline_id: Optional[int] = None
-    meta_ad_account_id: Optional[str] = Field(None, max_length=50)
-    google_ads_id: Optional[str] = Field(None, max_length=50)
-    inlead_form_id: Optional[str] = Field(None, max_length=100)
-    whatsapp_number: Optional[str] = Field(None, max_length=20)
-    config: Optional[dict] = None
-    contract_value: Optional[float] = None
-    contract_start: Optional[date] = None
-    status: Optional[ClientStatus] = None
+    name: str | None = Field(None, min_length=2, max_length=200)
+    specialty: str | None = Field(None, max_length=200)
+    client_type: str | None = Field(None, max_length=50)
+    contact_name: str | None = Field(None, max_length=200)
+    contact_phone: str | None = Field(None, max_length=20)
+    contact_email: str | None = Field(None, max_length=255)
+    kommo_pipeline_id: int | None = None
+    meta_ad_account_id: str | None = Field(None, max_length=50)
+    google_ads_id: str | None = Field(None, max_length=50)
+    inlead_form_id: str | None = Field(None, max_length=100)
+    whatsapp_number: str | None = Field(None, max_length=20)
+    config: dict | None = None
+    contract_value: float | None = None
+    contract_start: date | None = None
+    status: ClientStatus | None = None
 
 
 def _client_to_dict(client: Client) -> dict:
@@ -170,8 +169,8 @@ async def create_client(
 
 @router.get("")
 async def list_clients(
-    status: Optional[str] = Query(None, description="active | onboarding | paused | churned"),
-    client_type: Optional[str] = Query(None, description="professor | clinica | autonomo | agencia"),
+    status: str | None = Query(None, description="active | onboarding | paused | churned"),
+    client_type: str | None = Query(None, description="professor | clinica | autonomo | agencia"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),

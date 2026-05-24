@@ -18,16 +18,13 @@ O Villa consulta essa base antes de responder perguntas como:
     "Quando foi a última reunião com o Linardi?"
 """
 
-from datetime import datetime
-from typing import Optional
-from uuid import uuid4
 
-from sqlalchemy import select, text, delete
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.models import KnowledgeDocument, Client
-from memory.embeddings import EmbeddingService
+from core.models import Client, KnowledgeDocument
 from integrations.anthropic_client import claude
+from memory.embeddings import EmbeddingService
 
 
 class KnowledgeBaseService:
@@ -73,9 +70,9 @@ class KnowledgeBaseService:
         title: str,
         content: str,
         doc_type: str,
-        client_slug: Optional[str] = None,
-        source: Optional[str] = None,
-        source_url: Optional[str] = None,
+        client_slug: str | None = None,
+        source: str | None = None,
+        source_url: str | None = None,
     ) -> dict:
         """
         Adiciona e indexa um documento na base de conhecimento.
@@ -111,7 +108,7 @@ class KnowledgeBaseService:
         client_slug: str,
         title: str,
         roteiro_text: str,
-        performance_data: Optional[dict] = None,
+        performance_data: dict | None = None,
     ) -> dict:
         """
         Atalho: indexa um roteiro aprovado com seus dados de performance.
@@ -135,8 +132,8 @@ class KnowledgeBaseService:
         self,
         title: str,
         transcription: str,
-        client_slug: Optional[str] = None,
-        meeting_date: Optional[str] = None,
+        client_slug: str | None = None,
+        meeting_date: str | None = None,
     ) -> dict:
         """Atalho: indexa transcrição de reunião (Tactiq)."""
         content = transcription
@@ -155,8 +152,8 @@ class KnowledgeBaseService:
         self,
         question: str,
         answer: str,
-        client_slug: Optional[str] = None,
-        specialty: Optional[str] = None,
+        client_slug: str | None = None,
+        specialty: str | None = None,
     ) -> dict:
         """Atalho: indexa par pergunta/resposta para FAQ."""
         content = f"PERGUNTA: {question}\n\nRESPOSTA: {answer}"
@@ -179,8 +176,8 @@ class KnowledgeBaseService:
         self,
         query: str,
         limit: int = 5,
-        client_slug: Optional[str] = None,
-        doc_type: Optional[str] = None,
+        client_slug: str | None = None,
+        doc_type: str | None = None,
         min_score: float = 0.3,
     ) -> list[dict]:
         """
@@ -217,9 +214,9 @@ class KnowledgeBaseService:
     async def ask(
         self,
         question: str,
-        client_slug: Optional[str] = None,
-        doc_type: Optional[str] = None,
-        system_prompt_extra: Optional[str] = None,
+        client_slug: str | None = None,
+        doc_type: str | None = None,
+        system_prompt_extra: str | None = None,
         max_context_chunks: int = 5,
     ) -> dict:
         """
@@ -313,8 +310,8 @@ class KnowledgeBaseService:
 
     async def list_documents(
         self,
-        client_slug: Optional[str] = None,
-        doc_type: Optional[str] = None,
+        client_slug: str | None = None,
+        doc_type: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         """Lista documentos na base de conhecimento."""

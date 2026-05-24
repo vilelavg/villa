@@ -8,18 +8,13 @@ Nota: Smooth Dentistry é operação independente da WebXP
 com 6 sócios. Este módulo depende da aprovação da governança.
 """
 
-from typing import Optional
-from uuid import uuid4
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import ModuleCode, User
-from modules.base import BaseModule
 from memory.feedback_loop import FeedbackLoop
 from memory.knowledge_base import KnowledgeBaseService
-from integrations.whatsapp import whatsapp
-
+from modules.base import BaseModule
 
 SYSTEM_PROMPT = """Você é o Villa, módulo de suporte da comunidade Smooth Dentistry.
 
@@ -56,14 +51,14 @@ class M10Smooth(BaseModule):
 
     KEYWORDS = ["smooth", "comunidade", "membro", "membros", "dentistry", "portal", "assinatura"]
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
         if matches >= 2: return 0.85
         if matches >= 1: return 0.6
         return 0.0
 
-    async def execute(self, message: str, db: AsyncSession, user: Optional[User] = None, client_slug: Optional[str] = None, context: Optional[dict] = None) -> dict:
+    async def execute(self, message: str, db: AsyncSession, user: User | None = None, client_slug: str | None = None, context: dict | None = None) -> dict:
         feedback_loop = FeedbackLoop(db)
         kb = KnowledgeBaseService(db)
         context = context or {}

@@ -8,7 +8,6 @@ Formatos:
     - Mensal (PDF-ready): relatório completo para gerar PDF
 """
 
-from typing import Optional
 
 
 class ReportFormatter:
@@ -24,8 +23,8 @@ class ReportFormatter:
     def format_daily_whatsapp(
         self,
         data: dict,
-        analysis: Optional[str] = None,
-        client_name: Optional[str] = None,
+        analysis: str | None = None,
+        client_name: str | None = None,
     ) -> str:
         """
         Formato curto para envio diário via WhatsApp.
@@ -85,7 +84,7 @@ class ReportFormatter:
         self,
         data: dict,
         analysis: str,
-        previous_period_data: Optional[dict] = None,
+        previous_period_data: dict | None = None,
     ) -> str:
         """
         Relatório semanal completo com análise e comparativo.
@@ -188,7 +187,7 @@ class ReportFormatter:
         self,
         data: dict,
         analysis: str,
-        weekly_summaries: Optional[list[dict]] = None,
+        weekly_summaries: list[dict] | None = None,
     ) -> dict:
         """
         Prepara dados para relatório mensal em PDF.

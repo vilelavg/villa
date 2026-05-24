@@ -15,7 +15,6 @@ Fluxo completo:
 
 import logging
 import re
-from typing import Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -24,17 +23,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import (
-    Client, Roteiro, RoteiroStatus, ModuleCode, User,
+    Client,
+    ModuleCode,
+    Roteiro,
+    RoteiroStatus,
+    User,
 )
+from memory.feedback_loop import FeedbackLoop
 from modules.base import BaseModule
 from modules.m01_roteiros.prompts import (
-    SYSTEM_PROMPT,
     GENERATION_PROMPT,
     HOOK_VARIATIONS_PROMPT,
     REFINEMENT_PROMPT,
+    SYSTEM_PROMPT,
 )
 from modules.m01_roteiros.validators import RoteiroValidator
-from memory.feedback_loop import FeedbackLoop
 
 
 class M01Roteiros(BaseModule):
@@ -64,7 +67,7 @@ class M01Roteiros(BaseModule):
         super().__init__()
         self.validator = RoteiroValidator()
 
-    async def can_handle(self, message: str, context: Optional[dict] = None) -> float:
+    async def can_handle(self, message: str, context: dict | None = None) -> float:
         """Retorna confiança de 0-1 de que este módulo deve lidar com o comando."""
         msg_lower = message.lower()
 
@@ -91,9 +94,9 @@ class M01Roteiros(BaseModule):
         self,
         message: str,
         db: AsyncSession,
-        user: Optional[User] = None,
-        client_slug: Optional[str] = None,
-        context: Optional[dict] = None,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
     ) -> dict:
         """
         Executa o fluxo completo de geração de roteiro.
@@ -290,8 +293,8 @@ class M01Roteiros(BaseModule):
     # ═══════════════════════════════════════════════════
 
     async def _resolve_client(
-        self, db: AsyncSession, slug: Optional[str], message: str
-    ) -> Optional[Client]:
+        self, db: AsyncSession, slug: str | None, message: str
+    ) -> Client | None:
         """Resolve o cliente pelo slug ou buscando no texto."""
         if slug:
             result = await db.execute(select(Client).where(Client.slug == slug))
@@ -419,7 +422,7 @@ class M01Roteiros(BaseModule):
         data = response.get("data", {})
         return data.get("variations", [])
 
-    def _format_training_examples(self, training_data: Optional[dict]) -> str:
+    def _format_training_examples(self, training_data: dict | None) -> str:
         """Formata exemplos de treinamento para incluir no prompt."""
         if not training_data:
             return ""
@@ -458,12 +461,12 @@ class M01Roteiros(BaseModule):
         lines.append(parsed["cta"])
 
         if variations:
-            lines.append(f"\n**VARIAÇÕES DE GANCHO (A/B):**")
+            lines.append("\n**VARIAÇÕES DE GANCHO (A/B):**")
             for i, v in enumerate(variations, 1):
                 lines.append(f"{i}. {v.get('hook', '')} _({v.get('approach', '')})_")
 
         if not validation["all_passed"]:
-            lines.append(f"\n**PONTOS A MELHORAR:**")
+            lines.append("\n**PONTOS A MELHORAR:**")
             lines.append(validation["feedback_summary"])
 
         return "\n".join(lines)

@@ -5,8 +5,8 @@ Importar em qualquer lugar: from core.config import settings
 """
 
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
 
 
 class Settings(BaseSettings):

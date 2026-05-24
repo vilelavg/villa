@@ -3,7 +3,6 @@ Villa — Integração Google Sheets
 Leitura e escrita em planilhas (relatórios, BI, planilha mestre).
 """
 
-from typing import Optional
 
 import httpx
 
@@ -23,12 +22,14 @@ class GoogleSheetsClient:
     BASE_URL = "https://sheets.googleapis.com/v4/spreadsheets"
 
     def __init__(self):
-        self._token: Optional[str] = None
+        self._token: str | None = None
         self._token_expires: float = 0
         self._client = httpx.AsyncClient(timeout=30.0)
 
     async def _get_token(self) -> str:
-        import json, time
+        import json
+        import time
+
         from jose import jwt as jose_jwt
 
         if self._token and time.time() < self._token_expires:

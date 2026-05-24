@@ -5,7 +5,6 @@ O N8N serve como middleware de automação — o Villa
 pode acionar workflows que já estão rodando na WebXP.
 """
 
-from typing import Optional
 
 import httpx
 
@@ -36,7 +35,7 @@ class N8NClient:
         self,
         workflow_name: str,
         data: dict,
-        webhook_path: Optional[str] = None,
+        webhook_path: str | None = None,
     ) -> dict:
         """
         Dispara um workflow N8N via webhook.
@@ -59,7 +58,7 @@ class N8NClient:
         self,
         lead_id: int,
         event_name: str,
-        value: Optional[float] = None,
+        value: float | None = None,
     ) -> dict:
         """Atalho para disparar o workflow de Meta CAPI."""
         return await self.trigger("capi_conversion", {

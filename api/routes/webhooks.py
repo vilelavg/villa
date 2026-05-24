@@ -5,18 +5,17 @@ Cada webhook é validado, logado e roteado para o módulo correto.
 """
 
 from datetime import datetime
-from typing import Optional
 
-from fastapi import APIRouter, Request, HTTPException, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.middleware.auth import verify_webhook_signature, verify_whatsapp_webhook
+from api.middleware.rate_limit import webhook_limiter
 from core.config import settings
 from core.database import get_db
 from core.models import ModuleCode
 from core.orchestrator import orchestrator
-from api.middleware.auth import verify_webhook_signature, verify_whatsapp_webhook
-from api.middleware.rate_limit import webhook_limiter
 from security.audit_log import AuditService
 
 router = APIRouter()
@@ -234,7 +233,7 @@ async def webhook_whatsapp(
 async def webhook_n8n(
     request: Request,
     db: AsyncSession = Depends(get_db),
-    x_n8n_api_key: Optional[str] = Header(None),
+    x_n8n_api_key: str | None = Header(None),
     _rate=Depends(webhook_limiter),
 ):
     """

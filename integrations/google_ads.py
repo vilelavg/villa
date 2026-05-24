@@ -4,7 +4,6 @@ Acessa métricas via Google Apps Script Web App
 (o Caio já tem 6 contas configuradas dessa forma).
 """
 
-from typing import Optional
 from datetime import date
 
 import httpx
@@ -29,9 +28,9 @@ class GoogleAdsClient:
 
     async def get_metrics(
         self,
-        customer_id: Optional[str] = None,
-        date_start: Optional[date] = None,
-        date_end: Optional[date] = None,
+        customer_id: str | None = None,
+        date_start: date | None = None,
+        date_end: date | None = None,
         days: int = 7,
     ) -> dict:
         """
@@ -57,7 +56,7 @@ class GoogleAdsClient:
 
     async def get_campaign_data(
         self,
-        customer_id: Optional[str] = None,
+        customer_id: str | None = None,
         days: int = 30,
     ) -> list[dict]:
         """Busca dados de campanhas (nome, status, spend, clicks, impressions)."""

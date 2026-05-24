@@ -3,9 +3,10 @@ Villa — Conexão com PostgreSQL
 Engine async, session factory, e dependency injection para FastAPI.
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -13,10 +14,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import text
 
 from core.config import settings
-
 
 # ── Engine async ──
 engine: AsyncEngine = create_async_engine(

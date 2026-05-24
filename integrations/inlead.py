@@ -7,7 +7,6 @@ O InLead gera nomes de campos aleatórios por formulário
 tem um mapeamento diferente, armazenado em clients.inlead_field_mapping.
 """
 
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,8 +39,8 @@ class InLeadParser:
     async def parse(
         self,
         raw_data: dict,
-        client_slug: Optional[str] = None,
-        client_id: Optional[str] = None,
+        client_slug: str | None = None,
+        client_id: str | None = None,
     ) -> dict:
         """
         Traduz dados brutos do InLead para campos padronizados.
@@ -81,9 +80,9 @@ class InLeadParser:
 
     async def _get_mapping(
         self,
-        client_slug: Optional[str],
-        client_id: Optional[str],
-    ) -> Optional[dict]:
+        client_slug: str | None,
+        client_id: str | None,
+    ) -> dict | None:
         """Busca o mapeamento de campos do InLead para um cliente."""
         if client_slug:
             result = await self.db.execute(
@@ -128,7 +127,7 @@ class InLeadParser:
 
         return parsed
 
-    async def identify_client_by_form(self, form_id: str) -> Optional[Client]:
+    async def identify_client_by_form(self, form_id: str) -> Client | None:
         """
         Identifica qual cliente da WebXP corresponde a um form_id do InLead.
         Busca pelo campo inlead_form_id na tabela clients.

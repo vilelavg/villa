@@ -4,8 +4,6 @@ CRUD de leads, pipelines, cards e notas.
 Usa a API REST v4 do Kommo.
 """
 
-from typing import Optional
-from datetime import datetime
 
 import httpx
 
@@ -41,11 +39,11 @@ class KommoClient:
 
     async def get_leads(
         self,
-        pipeline_id: Optional[int] = None,
-        status_id: Optional[int] = None,
+        pipeline_id: int | None = None,
+        status_id: int | None = None,
         limit: int = 50,
         page: int = 1,
-        query: Optional[str] = None,
+        query: str | None = None,
     ) -> list[dict]:
         """Busca leads com filtros opcionais."""
         params = {"limit": limit, "page": page}
@@ -61,7 +59,7 @@ class KommoClient:
         data = response.json()
         return data.get("_embedded", {}).get("leads", [])
 
-    async def get_lead(self, lead_id: int) -> Optional[dict]:
+    async def get_lead(self, lead_id: int) -> dict | None:
         """Busca um lead específico pelo ID."""
         response = await self._client.get(f"/leads/{lead_id}")
         if response.status_code == 404:
@@ -73,10 +71,10 @@ class KommoClient:
         self,
         name: str,
         pipeline_id: int,
-        status_id: Optional[int] = None,
-        price: Optional[int] = None,
-        custom_fields: Optional[list[dict]] = None,
-        tags: Optional[list[str]] = None,
+        status_id: int | None = None,
+        price: int | None = None,
+        custom_fields: list[dict] | None = None,
+        tags: list[str] | None = None,
     ) -> dict:
         """Cria um novo lead no Kommo."""
         lead_data = {"name": name, "pipeline_id": pipeline_id}
@@ -107,7 +105,7 @@ class KommoClient:
         response.raise_for_status()
         return response.json().get("_embedded", {}).get("leads", [{}])[0]
 
-    async def move_lead(self, lead_id: int, status_id: int, pipeline_id: Optional[int] = None) -> dict:
+    async def move_lead(self, lead_id: int, status_id: int, pipeline_id: int | None = None) -> dict:
         """Move um lead para outra etapa do kanban."""
         fields = {"status_id": status_id}
         if pipeline_id:
@@ -168,7 +166,7 @@ class KommoClient:
     # CONTATOS
     # ═══════════════════════════════════════════════════
 
-    async def get_contact(self, contact_id: int) -> Optional[dict]:
+    async def get_contact(self, contact_id: int) -> dict | None:
         """Busca um contato pelo ID."""
         response = await self._client.get(f"/contacts/{contact_id}")
         if response.status_code == 404:
@@ -179,8 +177,8 @@ class KommoClient:
     async def create_contact(
         self,
         name: str,
-        phone: Optional[str] = None,
-        email: Optional[str] = None,
+        phone: str | None = None,
+        email: str | None = None,
     ) -> dict:
         """Cria um contato e retorna os dados."""
         contact = {"name": name, "custom_fields_values": []}

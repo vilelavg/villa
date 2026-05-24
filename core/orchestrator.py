@@ -8,20 +8,20 @@ Dois modos de operação:
     2. EVENTO: Webhook dispara → Villa identifica tipo → módulo reage
 """
 
-from typing import Optional
-from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
 from core.models import (
-    ModuleCode, ModuleConfig, Client, User, UserRole,
-    CommandResponse, ActionRisk,
+    Client,
+    CommandResponse,
+    ModuleCode,
+    User,
+    UserRole,
 )
 from core.permissions import permissions
-from modules.base import BaseModule
 from integrations.anthropic_client import claude
+from modules.base import BaseModule
 from security.audit_log import AuditService
 
 
@@ -82,8 +82,8 @@ class Orchestrator:
         message: str,
         db: AsyncSession,
         user: User,
-        client_slug: Optional[str] = None,
-        module_hint: Optional[ModuleCode] = None,
+        client_slug: str | None = None,
+        module_hint: ModuleCode | None = None,
     ) -> CommandResponse:
         """
         Processa um comando em linguagem natural.
@@ -273,7 +273,7 @@ class Orchestrator:
         self,
         message: str,
         db: AsyncSession,
-    ) -> tuple[Optional[BaseModule], str]:
+    ) -> tuple[BaseModule | None, str]:
         """
         Decide qual módulo deve lidar com o comando.
         
@@ -378,7 +378,7 @@ class Orchestrator:
 
         return routes
 
-    async def _extract_client(self, message: str, db: AsyncSession) -> Optional[str]:
+    async def _extract_client(self, message: str, db: AsyncSession) -> str | None:
         """
         Tenta extrair o slug do cliente mencionado no comando.
         Busca nomes e slugs conhecidos no banco.

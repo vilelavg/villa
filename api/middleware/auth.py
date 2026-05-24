@@ -4,11 +4,10 @@ Middleware de autenticação para a API do Villa.
 Protege endpoints com token JWT + validação de role.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -18,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import get_db
 from core.models import User, UserRole
-
 
 # ── Segurança ──
 security_scheme = HTTPBearer(auto_error=False)
@@ -60,7 +58,7 @@ def create_access_token(
     user_id: str,
     email: str,
     role: UserRole,
-    expires_minutes: Optional[int] = None,
+    expires_minutes: int | None = None,
 ) -> str:
     """
     Cria um token JWT com os dados do usuário.
@@ -74,7 +72,7 @@ def create_access_token(
     Returns:
         Token JWT assinado
     """
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         minutes=expires_minutes or settings.jwt_expiration_minutes
     )
     payload = {
@@ -82,7 +80,7 @@ def create_access_token(
         "email": email,
         "role": role.value,
         "exp": expire,
-        "iat": datetime.now(timezone.utc),
+        "iat": datetime.now(UTC),
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
@@ -104,7 +102,7 @@ def decode_token(token: str) -> TokenData:
             user_id=payload["sub"],
             email=payload["email"],
             role=UserRole(payload["role"]),
-            exp=datetime.fromtimestamp(payload["exp"], tz=timezone.utc),
+            exp=datetime.fromtimestamp(payload["exp"], tz=UTC),
         )
     except JWTError as e:
         raise HTTPException(
@@ -119,7 +117,7 @@ def decode_token(token: str) -> TokenData:
 # ═══════════════════════════════════════════════════════════════
 
 async def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
@@ -193,9 +191,9 @@ require_sdr = require_role(UserRole.ADMIN, UserRole.OPERATOR, UserRole.SDR)
 
 
 async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
-) -> Optional[User]:
+) -> User | None:
     """
     Dependency que retorna o usuário se autenticado, ou None.
     Útil para endpoints que funcionam com e sem auth (ex: webhooks).
@@ -229,8 +227,8 @@ def verify_webhook_signature(
     Returns:
         True se a assinatura é válida
     """
-    import hmac
     import hashlib
+    import hmac
 
     expected = hmac.new(
         secret.encode("utf-8"),
@@ -245,7 +243,7 @@ def verify_whatsapp_webhook(
     mode: str,
     token: str,
     challenge: str,
-) -> Optional[str]:
+) -> str | None:
     """
     Valida webhook verification do WhatsApp Business API.
     Retorna o challenge se válido, None se inválido.

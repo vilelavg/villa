@@ -11,18 +11,22 @@ Sequência:
     6. Registrar tudo no audit log
 """
 
-from datetime import datetime, date, timedelta
-from typing import Optional
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.config import settings
-from core.models import (
-    Client, ClientStatus, Campaign, Lead, LeadStatus,
-    Appointment, Alert, Report, ModuleCode,
-)
 from core.database import get_db_session
+from core.models import (
+    Alert,
+    Appointment,
+    Campaign,
+    Client,
+    ClientStatus,
+    Lead,
+    LeadStatus,
+    ModuleCode,
+)
 from security.audit_log import AuditService
 
 
@@ -369,10 +373,7 @@ async def _generate_and_deliver_daily_reports(db: AsyncSession) -> dict:
     Horário: configurado por cliente em clients.config.report_schedule
     (ex: "08:30") com variação aleatória de ±10min para parecer humano.
     """
-    import random
-    from datetime import date, timedelta
     from modules.m02_relatorios.agent import M02Relatorios
-    from modules.m02_relatorios.collectors import DataCollector
 
     result = await db.execute(
         select(Client)
@@ -462,7 +463,6 @@ async def _deliver_report_by_email(client: "Client", report_text: str, report_da
     TODO: Integrar com SendGrid ou SMTP quando disponível.
     Por ora, cria um Alert no sistema para que Caio/Thaís encaminhem manualmente.
     """
-    from core.models import Alert
 
     # Usar get_db_session não está disponível aqui (já dentro de uma session)
     # Criar alert para lembrar de entregar

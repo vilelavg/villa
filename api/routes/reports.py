@@ -4,25 +4,24 @@ Consulta relatórios gerados pelo módulo M2.
 """
 
 from datetime import date, datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database import get_db
-from core.models import Report, Client, User, UserRole
 from api.middleware.auth import get_current_user, require_role
+from core.database import get_db
+from core.models import Client, Report, User, UserRole
 
 router = APIRouter()
 
 
 @router.get("")
 async def list_reports(
-    client_slug: Optional[str] = Query(None, description="Filtrar por cliente"),
-    report_type: Optional[str] = Query(None, description="daily | weekly | monthly"),
-    start_date: Optional[date] = Query(None, description="Data início do período"),
-    end_date: Optional[date] = Query(None, description="Data fim do período"),
+    client_slug: str | None = Query(None, description="Filtrar por cliente"),
+    report_type: str | None = Query(None, description="daily | weekly | monthly"),
+    start_date: date | None = Query(None, description="Data início do período"),
+    end_date: date | None = Query(None, description="Data fim do período"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
