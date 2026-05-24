@@ -34,17 +34,39 @@ class M12Alertas(BaseModule):
     name = "Alertas Inteligentes"
     description = "Monitora métricas críticas e dispara alertas proativos via WhatsApp. CPL, frequência, show rate, SLA, budget."
 
-    KEYWORDS = ["alerta", "alertas", "aviso", "anomalia", "problema", "atenção", "atencao", "urgente", "crítico", "critico", "monitoramento"]
+    KEYWORDS = [
+        "alerta",
+        "alertas",
+        "aviso",
+        "anomalia",
+        "problema",
+        "atenção",
+        "atencao",
+        "urgente",
+        "crítico",
+        "critico",
+        "monitoramento",
+    ]
 
     async def can_handle(self, message: str, context: dict | None = None) -> float:
-        if context and "alertas" in context.get("event_type", ""): return 0.9
+        if context and "alertas" in context.get("event_type", ""):
+            return 0.9
         msg_lower = message.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
-        if matches >= 2: return 0.8
-        if matches >= 1: return 0.55
+        if matches >= 2:
+            return 0.8
+        if matches >= 1:
+            return 0.55
         return 0.0
 
-    async def execute(self, message: str, db: AsyncSession, user: User | None = None, client_slug: str | None = None, context: dict | None = None) -> dict:
+    async def execute(
+        self,
+        message: str,
+        db: AsyncSession,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
+    ) -> dict:
         feedback_loop = FeedbackLoop(db)
         context = context or {}
 
@@ -87,16 +109,18 @@ class M12Alertas(BaseModule):
         alerts_data = []
         for a in alerts:
             severity_icon = {"critical": "🔴", "warning": "🟡", "info": "🔵"}.get(a.severity, "⚪")
-            alerts_data.append({
-                "id": a.id,
-                "icon": severity_icon,
-                "severity": a.severity,
-                "title": a.title,
-                "message": a.message,
-                "suggested_action": a.suggested_action,
-                "created_at": a.created_at.isoformat() if a.created_at else "",
-                "metric": f"{a.metric_name}: {a.metric_value}" if a.metric_name else "",
-            })
+            alerts_data.append(
+                {
+                    "id": a.id,
+                    "icon": severity_icon,
+                    "severity": a.severity,
+                    "title": a.title,
+                    "message": a.message,
+                    "suggested_action": a.suggested_action,
+                    "created_at": a.created_at.isoformat() if a.created_at else "",
+                    "metric": f"{a.metric_name}: {a.metric_value}" if a.metric_name else "",
+                }
+            )
 
         # Análise via Claude
         response = await self.ask_claude(

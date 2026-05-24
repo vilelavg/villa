@@ -68,12 +68,20 @@ class M03Qualificacao(BaseModule):
     STAND_BY = True
 
     KEYWORDS = [
-        "qualifica", "qualificar", "qualificação", "qualificacao",
-        "lead", "leads",
-        "atender", "atendimento",
-        "whatsapp", "mensagem",
-        "sdr", "comercial",
-        "score", "scoring",
+        "qualifica",
+        "qualificar",
+        "qualificação",
+        "qualificacao",
+        "lead",
+        "leads",
+        "atender",
+        "atendimento",
+        "whatsapp",
+        "mensagem",
+        "sdr",
+        "comercial",
+        "score",
+        "scoring",
     ]
 
     # Scoring a cada N mensagens
@@ -157,7 +165,11 @@ class M03Qualificacao(BaseModule):
 
         from_number = payload.get("from", "")
         message_data = payload.get("message", {})
-        msg_text = message_data.get("text", {}).get("body", "") if message_data.get("type") == "text" else ""
+        msg_text = (
+            message_data.get("text", {}).get("body", "")
+            if message_data.get("type") == "text"
+            else ""
+        )
         msg_id = message_data.get("id", "")
 
         if not from_number or not msg_text:
@@ -172,19 +184,20 @@ class M03Qualificacao(BaseModule):
 
         # Buscar lead pelo telefone
         result = await db.execute(
-            select(Lead)
-            .where(Lead.phone == from_number)
-            .order_by(Lead.created_at.desc())
+            select(Lead).where(Lead.phone == from_number).order_by(Lead.created_at.desc())
         )
         lead = result.scalar_one_or_none()
 
         if not lead:
-            return {"success": False, "error": "lead_not_found", "from": from_number[-4:], "actions_taken": []}
+            return {
+                "success": False,
+                "error": "lead_not_found",
+                "from": from_number[-4:],
+                "actions_taken": [],
+            }
 
         # Buscar cliente
-        client_result = await db.execute(
-            select(Client).where(Client.id == lead.client_id)
-        )
+        client_result = await db.execute(select(Client).where(Client.id == lead.client_id))
         client = client_result.scalar_one_or_none()
         if not client:
             return {"success": False, "error": "client_not_found", "actions_taken": []}
@@ -194,11 +207,13 @@ class M03Qualificacao(BaseModule):
 
         # Adicionar mensagem do lead ao histórico
         conv.messages = conv.messages or []
-        conv.messages.append({
-            "role": "lead",
-            "content": msg_text,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        conv.messages.append(
+            {
+                "role": "lead",
+                "content": msg_text,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
         message_count = len([m for m in conv.messages if m.get("role") == "lead"])
 
@@ -240,7 +255,9 @@ class M03Qualificacao(BaseModule):
         should_disqualify = "[DESQUALIFICADO]" in reply_text
 
         # Limpar tags do texto
-        clean_reply = reply_text.replace("[TRANSFERIR_HUMANO]", "").replace("[DESQUALIFICADO]", "").strip()
+        clean_reply = (
+            reply_text.replace("[TRANSFERIR_HUMANO]", "").replace("[DESQUALIFICADO]", "").strip()
+        )
 
         # Enviar resposta via WhatsApp
         if clean_reply:
@@ -251,11 +268,13 @@ class M03Qualificacao(BaseModule):
                 actions.append(f"reply_failed: {str(e)}")
 
         # Adicionar resposta ao histórico
-        conv.messages.append({
-            "role": "villa",
-            "content": clean_reply,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        conv.messages.append(
+            {
+                "role": "villa",
+                "content": clean_reply,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
         # Scoring periódico
         if message_count % self.SCORE_EVERY_N_MESSAGES == 0 or should_transfer or should_disqualify:
@@ -281,7 +300,10 @@ class M03Qualificacao(BaseModule):
                 if qualified_status_id:
                     try:
                         await kommo.move_lead(lead.kommo_lead_id, int(qualified_status_id))
-                        await kommo.add_note(lead.kommo_lead_id, f"Lead qualificado pelo Villa (score: {lead.qualification_score})")
+                        await kommo.add_note(
+                            lead.kommo_lead_id,
+                            f"Lead qualificado pelo Villa (score: {lead.qualification_score})",
+                        )
                         actions.append("kommo_moved")
                     except Exception:
                         pass
@@ -418,11 +440,13 @@ class M03Qualificacao(BaseModule):
             id=str(uuid4()),
             lead_id=lead.id,
             module=self.code,
-            messages=[{
-                "role": "villa",
-                "content": first_message,
-                "timestamp": datetime.utcnow().isoformat(),
-            }],
+            messages=[
+                {
+                    "role": "villa",
+                    "content": first_message,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            ],
             is_active=True,
         )
         db.add(conv)
@@ -462,9 +486,7 @@ class M03Qualificacao(BaseModule):
     # HELPERS
     # ═══════════════════════════════════════════════════
 
-    async def _get_or_create_conversation(
-        self, db: AsyncSession, lead: Lead
-    ) -> Conversation:
+    async def _get_or_create_conversation(self, db: AsyncSession, lead: Lead) -> Conversation:
         """Busca conversa ativa ou cria nova."""
         result = await db.execute(
             select(Conversation)

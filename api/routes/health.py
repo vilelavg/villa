@@ -43,7 +43,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     """
     Health check completo do Villa.
     Retorna status de cada componente.
-    
+
     Usado por:
     - Docker HEALTHCHECK
     - Monitoramento externo (UptimeRobot, etc.)
@@ -90,6 +90,7 @@ async def scheduler_status():
         {"running": true, "jobs_count": 3, "jobs": [...]}
     """
     from scheduler.setup import get_scheduler_status
+
     return get_scheduler_status()
 
 
@@ -118,9 +119,9 @@ async def trigger_scheduler_job(
 
     if job_id not in valid_jobs:
         from fastapi import HTTPException
+
         raise HTTPException(
-            status_code=400,
-            detail=f"job_id inválido. Opções: {list(valid_jobs.keys())}"
+            status_code=400, detail=f"job_id inválido. Opções: {list(valid_jobs.keys())}"
         )
 
     try:
@@ -135,4 +136,5 @@ async def trigger_scheduler_job(
         }
     except Exception as e:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=500, detail=f"Erro ao executar {job_id}: {str(e)}")

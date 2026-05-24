@@ -12,7 +12,7 @@ from typing import Any
 class Anonymizer:
     """
     Anonimiza dados pessoais para uso em relatórios e análises agregadas.
-    
+
     Uso:
         anon = Anonymizer()
         safe_data = anon.anonymize_lead(lead_dict)
@@ -29,28 +29,45 @@ class Anonymizer:
 
     # Campos considerados PII
     PII_FIELDS = {
-        "name", "nome", "contact_name", "patient_name",
-        "phone", "telefone", "celular", "contact_phone",
-        "email", "contact_email",
-        "cpf", "rg", "document",
-        "address", "endereco",
+        "name",
+        "nome",
+        "contact_name",
+        "patient_name",
+        "phone",
+        "telefone",
+        "celular",
+        "contact_phone",
+        "email",
+        "contact_email",
+        "cpf",
+        "rg",
+        "document",
+        "address",
+        "endereco",
     }
 
     # Campos de saúde (LGPD Art. 11 — categoria especial)
     HEALTH_FIELDS = {
-        "anamnese", "diagnosis", "diagnostico",
-        "treatment", "tratamento", "procedure", "procedimento",
-        "condition", "condicao", "medical_history",
+        "anamnese",
+        "diagnosis",
+        "diagnostico",
+        "treatment",
+        "tratamento",
+        "procedure",
+        "procedimento",
+        "condition",
+        "condicao",
+        "medical_history",
     }
 
     def anonymize_dict(self, data: dict, keep_keys: set[str] | None = None) -> dict:
         """
         Anonimiza um dicionário removendo/mascarando campos PII.
-        
+
         Args:
             data: Dicionário com dados pessoais
             keep_keys: Campos que NÃO devem ser anonimizados
-            
+
         Returns:
             Dicionário anonimizado
         """
@@ -81,17 +98,28 @@ class Anonymizer:
         Mantém: source, status, scores, datas.
         Remove: nome, telefone, email, dados brutos.
         """
-        return self.anonymize_dict(lead, keep_keys={
-            "id", "client_id", "status", "source",
-            "utm_source", "utm_medium", "utm_campaign",
-            "qualification_score", "deal_value",
-            "created_at", "updated_at", "converted_at",
-        })
+        return self.anonymize_dict(
+            lead,
+            keep_keys={
+                "id",
+                "client_id",
+                "status",
+                "source",
+                "utm_source",
+                "utm_medium",
+                "utm_campaign",
+                "qualification_score",
+                "deal_value",
+                "created_at",
+                "updated_at",
+                "converted_at",
+            },
+        )
 
     def mask_pii(self, text: str) -> str:
         """
         Mascara PII encontrado em texto livre.
-        
+
         Ex:
             "João Silva, CPF 123.456.789-00, tel (11) 98765-4321"
             → "*****, CPF ***.***.**9-00, tel (**) ****5-4321"

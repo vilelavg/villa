@@ -25,8 +25,8 @@ logger = logging.getLogger("villa.scheduler")
 scheduler = AsyncIOScheduler(
     timezone="America/Sao_Paulo",
     job_defaults={
-        "coalesce": True,          # Se perdeu uma execução, roda 1x só (não acumula)
-        "max_instances": 1,         # Nunca roda 2 instâncias da mesma tarefa
+        "coalesce": True,  # Se perdeu uma execução, roda 1x só (não acumula)
+        "max_instances": 1,  # Nunca roda 2 instâncias da mesma tarefa
         "misfire_grace_time": 3600,  # 1h de tolerância para tarefas atrasadas
     },
 )
@@ -36,6 +36,7 @@ async def _run_daily():
     """Wrapper para rotina diária com tratamento de erro."""
     try:
         from scheduler.daily_routines import run_daily_routine
+
         logger.info("🌅 Iniciando rotina diária")
         result = await run_daily_routine()
         tasks_ok = sum(1 for t in result.get("tasks", []) if t.get("success"))
@@ -49,6 +50,7 @@ async def _run_weekly():
     """Wrapper para rotina semanal com tratamento de erro."""
     try:
         from scheduler.weekly_routines import run_weekly_routine
+
         logger.info("📊 Iniciando rotina semanal")
         result = await run_weekly_routine()
         tasks_ok = sum(1 for t in result.get("tasks", []) if t.get("success"))
@@ -62,12 +64,10 @@ async def _run_monitors():
     """Wrapper para monitores contínuos com tratamento de erro."""
     try:
         from scheduler.monitors import run_monitors
+
         result = await run_monitors()
         monitors = result.get("monitors", [])
-        alerts = sum(
-            m.get("alerts_created", 0) + m.get("leads_breaching_sla", 0)
-            for m in monitors
-        )
+        alerts = sum(m.get("alerts_created", 0) + m.get("leads_breaching_sla", 0) for m in monitors)
         if alerts > 0:
             logger.warning(f"🔔 Monitores: {alerts} situações detectadas")
     except Exception as e:
@@ -135,12 +135,14 @@ def get_scheduler_status() -> dict:
         except Exception:
             next_run_str = "indisponível"
 
-        jobs.append({
-            "id": job.id,
-            "name": job.name,
-            "next_run": next_run_str,
-            "trigger": str(job.trigger),
-        })
+        jobs.append(
+            {
+                "id": job.id,
+                "name": job.name,
+                "next_run": next_run_str,
+                "trigger": str(job.trigger),
+            }
+        )
 
     return {
         "running": scheduler.running,

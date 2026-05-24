@@ -48,7 +48,7 @@ TEST_REDIS_URL = os.getenv("TEST_REDIS_URL", "redis://localhost:6380/1")
 def engine():
     _engine = create_async_engine(
         TEST_DATABASE_URL,
-        echo=False,          # True para debug SQL; False para output limpo
+        echo=False,  # True para debug SQL; False para output limpo
         pool_size=5,
         max_overflow=10,
     )
@@ -84,8 +84,8 @@ async def create_test_schema(engine):
 @pytest_asyncio.fixture
 async def db_session(engine, create_test_schema) -> AsyncGenerator[AsyncSession, None]:
     async with engine.connect() as conn:
-        await conn.begin()          # abre a transação externa
-        await conn.begin_nested()   # savepoint — revertido ao final do teste
+        await conn.begin()  # abre a transação externa
+        await conn.begin_nested()  # savepoint — revertido ao final do teste
 
         async_session_factory = async_sessionmaker(
             bind=conn,
@@ -113,6 +113,7 @@ async def override_db(db_session: AsyncSession):
         yield db_session
 
     from core.main import app
+
     app.dependency_overrides[get_session] = _get_test_session
     yield
     app.dependency_overrides.clear()
@@ -138,9 +139,7 @@ async def client(override_db) -> AsyncGenerator[httpx.AsyncClient, None]:
 async def auth_client(client: httpx.AsyncClient) -> httpx.AsyncClient:
     from security.auth import create_access_token
 
-    token = create_access_token(
-        data={"sub": "caio@webxp.com.br", "role": "admin"}
-    )
+    token = create_access_token(data={"sub": "caio@webxp.com.br", "role": "admin"})
     client.headers["Authorization"] = f"Bearer {token}"
     return client
 
@@ -150,6 +149,7 @@ async def auth_client(client: httpx.AsyncClient) -> httpx.AsyncClient:
 # Cada mock é uma fixture que intercepta chamadas HTTP para a API correspondente.
 # Os testes nunca fazem chamadas reais — são isolados e repeníveis offline.
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 # ── Mock Anthropic (Claude) ──────────────────────────────────────────────────
 # Retorna uma resposta padrão configurável por teste.
@@ -262,6 +262,7 @@ def mock_whatsapp() -> Generator[MagicMock, None, None]:
 # DADOS DE TESTE — fixtures com entidades prontas para uso nos testes
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 # ── Slug de cliente de teste ─────────────────────────────────────────────────
 @pytest.fixture
 def client_slug() -> str:
@@ -303,7 +304,7 @@ def campanha_data() -> dict[str, Any]:
         "campaign_id": "120210000000001",
         "campaign_name": "Implante | Remarketing | Mai26",
         "status": "ACTIVE",
-        "daily_budget": 5000,   # centavos (R$50,00)
+        "daily_budget": 5000,  # centavos (R$50,00)
         "impressions": 10000,
         "clicks": 300,
         "spend": 250.00,

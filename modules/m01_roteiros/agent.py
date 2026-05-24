@@ -52,13 +52,33 @@ class M01Roteiros(BaseModule):
 
     # Palavras-chave que indicam que este módulo deve atuar
     KEYWORDS = [
-        "roteiro", "roteiros", "script", "scripts",
-        "gancho", "ganchos", "hook",
-        "cta", "chamada para ação",
-        "criativo", "criativos", "copy", "copies",
-        "reels", "stories", "vídeo", "video",
-        "escreve", "escreva", "cria", "crie", "gera", "gere",
-        "monta", "monte", "faz", "faça",
+        "roteiro",
+        "roteiros",
+        "script",
+        "scripts",
+        "gancho",
+        "ganchos",
+        "hook",
+        "cta",
+        "chamada para ação",
+        "criativo",
+        "criativos",
+        "copy",
+        "copies",
+        "reels",
+        "stories",
+        "vídeo",
+        "video",
+        "escreve",
+        "escreva",
+        "cria",
+        "crie",
+        "gera",
+        "gere",
+        "monta",
+        "monte",
+        "faz",
+        "faça",
     ]
 
     MAX_REFINEMENT_ATTEMPTS = 2
@@ -82,7 +102,18 @@ class M01Roteiros(BaseModule):
             return 0.85
         if matches >= 1:
             # Uma keyword sozinha — verificar se é verbo genérico
-            generic_verbs = {"cria", "crie", "gera", "gere", "faz", "faça", "monta", "monte", "escreve", "escreva"}
+            generic_verbs = {
+                "cria",
+                "crie",
+                "gera",
+                "gere",
+                "faz",
+                "faça",
+                "monta",
+                "monte",
+                "escreve",
+                "escreva",
+            }
             matched_kws = [kw for kw in self.KEYWORDS if kw in msg_lower]
             if all(kw in generic_verbs for kw in matched_kws):
                 return 0.3  # Verbo genérico sem contexto — baixa confiança
@@ -100,7 +131,7 @@ class M01Roteiros(BaseModule):
     ) -> dict:
         """
         Executa o fluxo completo de geração de roteiro.
-        
+
         O message pode ser:
             - Briefing completo: "Roteiro de implantes pro Ottoboni, reels, público dentistas"
             - Comando curto: "Gera roteiro pro Ottoboni"
@@ -133,9 +164,15 @@ class M01Roteiros(BaseModule):
         # ── 4. Carregar thresholds do cliente ──
         config = await self.get_config(db)
         client_config = client.config or {}
-        min_hook = client_config.get("thresholds", {}).get("min_hook_score", config.get("min_hook_score", 7.0))
-        min_body = client_config.get("thresholds", {}).get("min_body_score", config.get("min_body_score", 7.0))
-        min_cta = client_config.get("thresholds", {}).get("min_cta_score", config.get("min_cta_score", 7.0))
+        min_hook = client_config.get("thresholds", {}).get(
+            "min_hook_score", config.get("min_hook_score", 7.0)
+        )
+        min_body = client_config.get("thresholds", {}).get(
+            "min_body_score", config.get("min_body_score", 7.0)
+        )
+        min_cta = client_config.get("thresholds", {}).get(
+            "min_cta_score", config.get("min_cta_score", 7.0)
+        )
 
         try:
             # ── 5. Gerar roteiro ──
@@ -216,7 +253,9 @@ class M01Roteiros(BaseModule):
                 hook=parsed["hook"],
                 body=parsed["body"],
                 cta=parsed["cta"],
-                full_script=parsed.get("full_script", f"{parsed['hook']}\n\n{parsed['body']}\n\n{parsed['cta']}"),
+                full_script=parsed.get(
+                    "full_script", f"{parsed['hook']}\n\n{parsed['body']}\n\n{parsed['cta']}"
+                ),
                 hook_score=validation["validations"]["hook"]["score"],
                 hook_feedback=validation["validations"]["hook"]["feedback"],
                 body_score=validation["validations"]["body"]["score"],
@@ -275,7 +314,9 @@ class M01Roteiros(BaseModule):
                     "hook_variations_count": len(hook_variations) if hook_variations else 0,
                 },
                 "actions_taken": actions,
-                "tokens_used": response.get("tokens_input", 0) + response.get("tokens_output", 0) + validation.get("total_tokens", 0),
+                "tokens_used": response.get("tokens_input", 0)
+                + response.get("tokens_output", 0)
+                + validation.get("total_tokens", 0),
             }
 
         except Exception as e:
@@ -360,15 +401,15 @@ class M01Roteiros(BaseModule):
 
         # CTA
         cta_match = re.search(
-            r"(?:CTA|CHAMADA PARA AÇÃO)[^:]*:\s*\n(.+?)(?=\nROTEIRO COMPLETO|\Z)", clean_text, re.DOTALL
+            r"(?:CTA|CHAMADA PARA AÇÃO)[^:]*:\s*\n(.+?)(?=\nROTEIRO COMPLETO|\Z)",
+            clean_text,
+            re.DOTALL,
         )
         if cta_match:
             result["cta"] = cta_match.group(1).strip()
 
         # Roteiro completo
-        full_match = re.search(
-            r"ROTEIRO COMPLETO[^:]*:\s*\n(.+?)(?=---|$)", text, re.DOTALL
-        )
+        full_match = re.search(r"ROTEIRO COMPLETO[^:]*:\s*\n(.+?)(?=---|$)", text, re.DOTALL)
         if full_match:
             result["full_script"] = full_match.group(1).strip()
         else:
@@ -389,9 +430,7 @@ class M01Roteiros(BaseModule):
         for component in ["hook", "body", "cta"]:
             v = validation["validations"][component]
             if not v["passed"]:
-                feedback_parts.append(
-                    f"{component.upper()} ({v['score']:.1f}/10): {v['feedback']}"
-                )
+                feedback_parts.append(f"{component.upper()} ({v['score']:.1f}/10): {v['feedback']}")
                 if v.get("suggestion"):
                     feedback_parts.append(f"  Sugestão: {v['suggestion']}")
 
@@ -446,7 +485,9 @@ class M01Roteiros(BaseModule):
         lines = []
 
         status_emoji = "✅" if validation["all_passed"] else "⚠️"
-        lines.append(f"{status_emoji} **{parsed.get('title', 'Roteiro')}** (Score: {validation['overall_score']}/10)")
+        lines.append(
+            f"{status_emoji} **{parsed.get('title', 'Roteiro')}** (Score: {validation['overall_score']}/10)"
+        )
 
         if attempts > 0:
             lines.append(f"_Refinado {attempts}x automaticamente._")

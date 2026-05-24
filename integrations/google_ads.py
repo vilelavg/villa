@@ -16,7 +16,7 @@ class GoogleAdsClient:
     Cliente para Google Ads via Apps Script Web App.
     A WebXP já usa esse modelo — o Apps Script expõe um endpoint
     que retorna dados do Google Ads em JSON.
-    
+
     Uso:
         gads = GoogleAdsClient()
         data = await gads.get_metrics(customer_id="123-456-7890", days=7)
@@ -35,7 +35,7 @@ class GoogleAdsClient:
     ) -> dict:
         """
         Busca métricas do Google Ads via Apps Script.
-        
+
         Args:
             customer_id: ID da conta Google Ads (opcional se o script gerencia)
             date_start: Data início (padrão: últimos N dias)

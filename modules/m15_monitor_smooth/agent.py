@@ -139,10 +139,15 @@ class M15MonitorSmooth(BaseModule):
     )
 
     KEYWORDS = [
-        "smooth", "comunidade smooth", "monitor smooth",
-        "grupo smooth", "membros smooth",
-        "insights smooth", "relatório smooth",
-        "monitoramento", "inteligência comunidade",
+        "smooth",
+        "comunidade smooth",
+        "monitor smooth",
+        "grupo smooth",
+        "membros smooth",
+        "insights smooth",
+        "relatório smooth",
+        "monitoramento",
+        "inteligência comunidade",
     ]
 
     async def can_handle(self, message: str, context: dict | None = None) -> float:
@@ -186,7 +191,11 @@ class M15MonitorSmooth(BaseModule):
             return await self._ingest_batch(context.get("messages", []), db)
 
         # Insights semanais (scheduler)
-        if event_type == "scheduler_weekly_smooth_insights" or "insight" in message.lower() or "relatório smooth" in message.lower():
+        if (
+            event_type == "scheduler_weekly_smooth_insights"
+            or "insight" in message.lower()
+            or "relatório smooth" in message.lower()
+        ):
             return await self._generate_insights(db, days=7)
 
         # Status e estatísticas
@@ -313,9 +322,9 @@ class M15MonitorSmooth(BaseModule):
         all_topics: dict = {}
 
         for msg in messages:
-            for pp in (msg.pain_points or []):
+            for pp in msg.pain_points or []:
                 all_pain_points[pp] = all_pain_points.get(pp, 0) + 1
-            for topic in (msg.topics or []):
+            for topic in msg.topics or []:
                 all_topics[topic] = all_topics.get(topic, 0) + 1
 
         top_pain_points = sorted(all_pain_points.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -323,9 +332,7 @@ class M15MonitorSmooth(BaseModule):
 
         # Membros mais ativos
         member_result = await db.execute(
-            select(SmoothMember)
-            .order_by(desc(SmoothMember.engagement_score))
-            .limit(10)
+            select(SmoothMember).order_by(desc(SmoothMember.engagement_score)).limit(10)
         )
         top_members = member_result.scalars().all()
 
@@ -341,8 +348,9 @@ class M15MonitorSmooth(BaseModule):
 
         # Contagem de membros ativos no período
         active_result = await db.execute(
-            select(func.count(func.distinct(SmoothMessage.member_phone)))
-            .where(SmoothMessage.message_timestamp >= period_start)
+            select(func.count(func.distinct(SmoothMessage.member_phone))).where(
+                SmoothMessage.message_timestamp >= period_start
+            )
         )
         active_members_count = active_result.scalar_one_or_none() or 0
 
@@ -355,7 +363,7 @@ class M15MonitorSmooth(BaseModule):
             for m in top_members
         )
         examples_text = "\n".join(
-            f"- [{msg.member_name}]: \"{msg.content[:150]}\"" for msg in high_rel_messages
+            f'- [{msg.member_name}]: "{msg.content[:150]}"' for msg in high_rel_messages
         )
 
         response = await self.ask_claude(
@@ -445,11 +453,10 @@ class M15MonitorSmooth(BaseModule):
     # HELPERS
     # ═══════════════════════════════════════════════════
 
-    async def _classify_message(
-        self, content: str, member_name: str, db: AsyncSession
-    ) -> dict:
+    async def _classify_message(self, content: str, member_name: str, db: AsyncSession) -> dict:
         """Classifica uma mensagem usando Claude Haiku."""
         import json
+
         response = await self.ask_claude(
             message=CLASSIFY_PROMPT.format(
                 member_name=member_name,
@@ -483,9 +490,7 @@ class M15MonitorSmooth(BaseModule):
         classification: dict,
     ) -> None:
         """Atualiza ou cria perfil do membro com a nova mensagem."""
-        result = await db.execute(
-            select(SmoothMember).where(SmoothMember.phone == phone)
-        )
+        result = await db.execute(select(SmoothMember).where(SmoothMember.phone == phone))
         member = result.scalar_one_or_none()
         now = datetime.utcnow()
 

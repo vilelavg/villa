@@ -74,11 +74,18 @@ class M05Agendamento(BaseModule):
     STAND_BY = True
 
     KEYWORDS = [
-        "consulta", "consultas",
-        "horário", "horario", "horários",
-        "marcar", "remarcar", "cancelar",
-        "disponibilidade", "disponível",
-        "calendar", "calendário",
+        "consulta",
+        "consultas",
+        "horário",
+        "horario",
+        "horários",
+        "marcar",
+        "remarcar",
+        "cancelar",
+        "disponibilidade",
+        "disponível",
+        "calendar",
+        "calendário",
     ]
 
     async def can_handle(self, message: str, context: dict | None = None) -> float:
@@ -86,8 +93,10 @@ class M05Agendamento(BaseModule):
         if context and "agendamento" in context.get("event_type", ""):
             return 0.9
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
-        if matches >= 2: return 0.85
-        if matches >= 1: return 0.65
+        if matches >= 2:
+            return 0.85
+        if matches >= 1:
+            return 0.65
         return 0.0
 
     async def execute(
@@ -155,7 +164,7 @@ class M05Agendamento(BaseModule):
         # Selecionar os 3 melhores horários (manhã, tarde, outro dia)
         best_slots = slots[:3] if len(slots) >= 3 else slots
         slots_text = "\n".join(
-            f"{i+1}. {s['date']} às {s['start'].split('T')[1][:5]}"
+            f"{i + 1}. {s['date']} às {s['start'].split('T')[1][:5]}"
             for i, s in enumerate(best_slots)
         )
 
@@ -173,7 +182,8 @@ class M05Agendamento(BaseModule):
         )
 
         await feedback_loop.record_decision(
-            module=self.code, action="oferecer_horarios",
+            module=self.code,
+            action="oferecer_horarios",
             input_data={"client": client.slug, "slots_available": len(slots)},
             output_data={"slots_offered": len(best_slots), "message": response["text"][:200]},
             reasoning=f"Encontrados {len(slots)} slots em 3 dias úteis.",
@@ -253,7 +263,10 @@ class M05Agendamento(BaseModule):
             if scheduled_status:
                 try:
                     await kommo.move_lead(lead.kommo_lead_id, int(scheduled_status))
-                    await kommo.add_note(lead.kommo_lead_id, f"Consulta agendada para {slot_start.strftime('%d/%m %H:%M')} pelo Villa")
+                    await kommo.add_note(
+                        lead.kommo_lead_id,
+                        f"Consulta agendada para {slot_start.strftime('%d/%m %H:%M')} pelo Villa",
+                    )
                     actions.append("kommo_updated")
                 except Exception:
                     actions.append("kommo_update_failed")

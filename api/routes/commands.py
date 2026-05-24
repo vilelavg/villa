@@ -25,7 +25,7 @@ async def execute_command(
 ):
     """
     Recebe um comando em linguagem natural e roteia para o módulo correto.
-    
+
     Exemplos de comandos:
         "Gera um roteiro para o Ottoboni sobre implantes"
         "Como estão as campanhas do Linardi essa semana?"
@@ -53,9 +53,9 @@ async def execute_direct_module(
     """
     Executa um comando diretamente em um módulo específico,
     sem passar pelo orquestrador.
-    
+
     Útil para testes e quando o usuário sabe exatamente o que quer.
-    
+
     Ex: POST /command/direct/m01_roteiros
         {"message": "Gera roteiro de implante para Ottoboni"}
     """

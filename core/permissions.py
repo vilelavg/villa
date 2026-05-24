@@ -14,7 +14,6 @@ Ações classificadas por risco:
     high   → confirmação humana (alterar campanha, excluir dado, enviar proposta)
 """
 
-
 from core.models import ActionRisk, ModuleCode, UserRole
 
 # ═══════════════════════════════════════════════════════════════
@@ -47,24 +46,35 @@ MODULE_ACCESS: dict[UserRole, set[ModuleCode]] = {
 # Ações que cada role pode executar
 ACTION_ACCESS: dict[UserRole, set[str]] = {
     UserRole.ADMIN: {
-        "read", "write", "delete", "configure",
-        "manage_users", "view_audit", "confirm_high_risk",
-        "export_data", "manage_modules",
+        "read",
+        "write",
+        "delete",
+        "configure",
+        "manage_users",
+        "view_audit",
+        "confirm_high_risk",
+        "export_data",
+        "manage_modules",
     },
     UserRole.OPERATOR: {
-        "read", "write",
-        "generate_report", "generate_roteiro",
-        "qualify_lead", "schedule_appointment",
+        "read",
+        "write",
+        "generate_report",
+        "generate_roteiro",
+        "qualify_lead",
+        "schedule_appointment",
         "send_message_template",
     },
     UserRole.SDR: {
         "read",
-        "qualify_lead", "schedule_appointment",
+        "qualify_lead",
+        "schedule_appointment",
         "view_lead_details",
     },
     UserRole.READONLY: {
         "read",
-        "view_reports", "view_dashboards",
+        "view_reports",
+        "view_dashboards",
     },
 }
 
@@ -78,7 +88,6 @@ ACTION_RISK_MAP: dict[str, ActionRisk] = {
     "query_knowledge_base": ActionRisk.LOW,
     "generate_hypothesis": ActionRisk.LOW,
     "read": ActionRisk.LOW,
-
     # Médio risco — log + notificação
     "move_card_kommo": ActionRisk.MEDIUM,
     "send_whatsapp_template": ActionRisk.MEDIUM,
@@ -87,7 +96,6 @@ ACTION_RISK_MAP: dict[str, ActionRisk] = {
     "send_capi_event": ActionRisk.MEDIUM,
     "schedule_appointment": ActionRisk.MEDIUM,
     "write": ActionRisk.MEDIUM,
-
     # Alto risco — confirmação humana obrigatória
     "modify_campaign": ActionRisk.HIGH,
     "pause_campaign": ActionRisk.HIGH,
@@ -106,16 +114,17 @@ ACTION_RISK_MAP: dict[str, ActionRisk] = {
 # SERVIÇO DE PERMISSÕES
 # ═══════════════════════════════════════════════════════════════
 
+
 class PermissionService:
     """
     Verifica permissões de acesso para usuários do Villa.
-    
+
     Uso:
         perms = PermissionService()
-        
+
         if perms.can_access_module(user_role, ModuleCode.M01_ROTEIROS):
             # Executa o módulo
-            
+
         if perms.can_execute(user_role, "modify_campaign"):
             risk = perms.get_action_risk("modify_campaign")
             if risk == ActionRisk.HIGH:
@@ -156,7 +165,7 @@ class PermissionService:
         """
         Verifica permissão e retorna o nível de risco.
         Levanta PermissionError se não autorizado.
-        
+
         Returns:
             ActionRisk da ação (para o chamador decidir se precisa confirmação)
         """

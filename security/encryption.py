@@ -16,7 +16,7 @@ from core.config import settings
 class EncryptionService:
     """
     Serviço de criptografia para dados sensíveis.
-    
+
     Uso:
         crypto = EncryptionService()
         encrypted = crypto.encrypt("dados sensíveis")
@@ -43,10 +43,10 @@ class EncryptionService:
     def encrypt(self, plaintext: str) -> str:
         """
         Criptografa uma string. Retorna o texto cifrado em base64.
-        
+
         Args:
             plaintext: Texto a criptografar
-            
+
         Returns:
             String criptografada (base64, segura para armazenar no banco)
         """
@@ -58,13 +58,13 @@ class EncryptionService:
     def decrypt(self, ciphertext: str) -> str:
         """
         Descriptografa uma string previamente criptografada.
-        
+
         Args:
             ciphertext: Texto cifrado em base64
-            
+
         Returns:
             Texto original
-            
+
         Raises:
             InvalidToken: Se a chave estiver errada ou o dado corrompido
         """
@@ -83,11 +83,11 @@ class EncryptionService:
         """
         Criptografa campos específicos de um dicionário.
         Útil para criptografar seletivamente dados de um lead/cliente.
-        
+
         Args:
             data: Dicionário com os dados
             fields: Lista de campos a criptografar
-            
+
         Returns:
             Dicionário com os campos especificados criptografados
         """
@@ -100,11 +100,11 @@ class EncryptionService:
     def decrypt_dict(self, data: dict, fields: list[str]) -> dict:
         """
         Descriptografa campos específicos de um dicionário.
-        
+
         Args:
             data: Dicionário com dados criptografados
             fields: Lista de campos a descriptografar
-            
+
         Returns:
             Dicionário com os campos especificados descriptografados
         """
@@ -122,7 +122,7 @@ class EncryptionService:
         """
         Gera uma nova chave Fernet válida.
         Usar para gerar o valor de ENCRYPTION_KEY no .env.
-        
+
         Uso no terminal:
             python -c "from security.encryption import EncryptionService; print(EncryptionService.generate_key())"
         """

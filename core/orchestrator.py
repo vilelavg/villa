@@ -8,7 +8,6 @@ Dois modos de operação:
     2. EVENTO: Webhook dispara → Villa identifica tipo → módulo reage
 """
 
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,22 +27,22 @@ from security.audit_log import AuditService
 class Orchestrator:
     """
     Orquestrador central do Villa.
-    
+
     Responsabilidades:
         - Receber comandos em linguagem natural e rotear para o módulo correto
         - Receber eventos de webhooks e disparar ações automáticas
         - Consolidar respostas dos módulos
         - Validar permissões antes de executar
         - Registrar tudo no audit log
-    
+
     Uso:
         orchestrator = Orchestrator()
         orchestrator.register_module(M01Roteiros())
         orchestrator.register_module(M02Relatorios())
-        
+
         # Via comando
         result = await orchestrator.process_command("Gera roteiro pro Ottoboni", db, user)
-        
+
         # Via evento
         result = await orchestrator.handle_event("inlead_new_lead", payload, db)
     """
@@ -63,7 +62,7 @@ class Orchestrator:
     def register_event_route(self, event_type: str, modules: list[ModuleCode]) -> None:
         """
         Mapeia um tipo de evento para módulos que devem reagir.
-        
+
         Ex:
             orchestrator.register_event_route("inlead_new_lead", [ModuleCode.M03_QUALIFICACAO])
             orchestrator.register_event_route("kommo_lead_status_changed", [
@@ -87,7 +86,7 @@ class Orchestrator:
     ) -> CommandResponse:
         """
         Processa um comando em linguagem natural.
-        
+
         Fluxo:
             1. Se module_hint foi dado, usa direto
             2. Senão, pede ao Claude para classificar o comando
@@ -209,12 +208,12 @@ class Orchestrator:
         """
         Processa um evento de webhook ou scheduler.
         Pode disparar múltiplos módulos em sequência.
-        
+
         Args:
             event_type: Tipo do evento (ex: "inlead_new_lead", "kommo_lead_status_changed")
             payload: Dados do evento
             db: Sessão do banco
-            
+
         Returns:
             Lista de resultados (um por módulo acionado)
         """
@@ -276,7 +275,7 @@ class Orchestrator:
     ) -> tuple[BaseModule | None, str]:
         """
         Decide qual módulo deve lidar com o comando.
-        
+
         Estratégia em 2 passos:
             1. Pede a cada módulo ativo sua confiança (can_handle)
             2. Se nenhum tem confiança alta, usa Claude para classificar
@@ -305,9 +304,7 @@ class Orchestrator:
         if not active_modules:
             return None, "no_active_modules"
 
-        modules_desc = "\n".join(
-            f"- {code}: {desc}" for code, desc in active_modules.items()
-        )
+        modules_desc = "\n".join(f"- {code}: {desc}" for code, desc in active_modules.items())
 
         result = await claude.classify(
             text=message,
@@ -362,7 +359,7 @@ class Orchestrator:
                 routes.append(ModuleCode.M02_RELATORIOS)
             elif "inlead" in event_type or "new_lead" in event_type or "lead" in event_type:
                 # Lead captado via N8N (InLead → N8N → Villa)
-                routes.append(ModuleCode.M02_RELATORIOS)    # registrar no relatório
+                routes.append(ModuleCode.M02_RELATORIOS)  # registrar no relatório
                 routes.append(ModuleCode.M14_SUPORTE_MARI)  # analisar para banco SDR
             elif "kommo" in event_type:
                 # Evento do Kommo roteado via N8N
@@ -412,8 +409,7 @@ class Orchestrator:
     def get_event_routes(self) -> dict[str, list[str]]:
         """Lista mapeamento de eventos para módulos."""
         return {
-            event: [code.value for code in modules]
-            for event, modules in self._event_routes.items()
+            event: [code.value for code in modules] for event, modules in self._event_routes.items()
         }
 
 
@@ -425,100 +421,153 @@ def setup_orchestrator() -> Orchestrator:
     """
     Configura o orquestrador com todos os módulos e event routes.
     Chamado no startup do FastAPI.
-    
+
     TODO: Importar e registrar cada módulo conforme forem implementados.
     """
     # ── Registrar módulos ──
     from modules.m01_roteiros.agent import M01Roteiros
+
     orchestrator.register_module(M01Roteiros())
 
     from modules.m02_relatorios.agent import M02Relatorios
+
     orchestrator.register_module(M02Relatorios())
 
     from modules.m03_qualificacao.agent import M03Qualificacao
+
     orchestrator.register_module(M03Qualificacao())
 
     from modules.m04_campanhas.agent import M04Campanhas
+
     orchestrator.register_module(M04Campanhas())
 
     from modules.m05_agendamento.agent import M05Agendamento
+
     orchestrator.register_module(M05Agendamento())
 
     from modules.m06_atendimento.agent import M06Atendimento
+
     orchestrator.register_module(M06Atendimento())
 
     from modules.m07_retroalimentacao.agent import M07Retroalimentacao
+
     orchestrator.register_module(M07Retroalimentacao())
 
     from modules.m08_onboarding.agent import M08Onboarding
+
     orchestrator.register_module(M08Onboarding())
 
     from modules.m09_arquivos.agent import M09Arquivos
+
     orchestrator.register_module(M09Arquivos())
 
     from modules.m10_smooth.agent import M10Smooth
+
     orchestrator.register_module(M10Smooth())
 
     from modules.m11_hipoteses.agent import M11Hipoteses
+
     orchestrator.register_module(M11Hipoteses())
 
     from modules.m12_alertas.agent import M12Alertas
+
     orchestrator.register_module(M12Alertas())
 
     from modules.m14_suporte_mari.agent import M14SuporteMari
+
     orchestrator.register_module(M14SuporteMari())
 
     from modules.m15_monitor_smooth.agent import M15MonitorSmooth
+
     orchestrator.register_module(M15MonitorSmooth())
 
     # ── Registrar event routes ──
-    orchestrator.register_event_route("inlead_new_lead", [
-        ModuleCode.M03_QUALIFICACAO,
-    ])
-    orchestrator.register_event_route("kommo_lead_status_changed", [
-        ModuleCode.M03_QUALIFICACAO,
-        ModuleCode.M05_AGENDAMENTO,
-        ModuleCode.M02_RELATORIOS,
-    ])
-    orchestrator.register_event_route("kommo_lead_added", [
-        ModuleCode.M03_QUALIFICACAO,
-    ])
-    orchestrator.register_event_route("whatsapp_message", [
-        ModuleCode.M06_ATENDIMENTO,
-    ])
-    orchestrator.register_event_route("scheduler_daily", [
-        ModuleCode.M02_RELATORIOS,
-        ModuleCode.M12_ALERTAS,
-        ModuleCode.M04_CAMPANHAS,
-    ])
-    orchestrator.register_event_route("scheduler_weekly", [
-        ModuleCode.M02_RELATORIOS,
-        ModuleCode.M07_RETROALIMENTACAO,
-    ])
+    orchestrator.register_event_route(
+        "inlead_new_lead",
+        [
+            ModuleCode.M03_QUALIFICACAO,
+        ],
+    )
+    orchestrator.register_event_route(
+        "kommo_lead_status_changed",
+        [
+            ModuleCode.M03_QUALIFICACAO,
+            ModuleCode.M05_AGENDAMENTO,
+            ModuleCode.M02_RELATORIOS,
+        ],
+    )
+    orchestrator.register_event_route(
+        "kommo_lead_added",
+        [
+            ModuleCode.M03_QUALIFICACAO,
+        ],
+    )
+    orchestrator.register_event_route(
+        "whatsapp_message",
+        [
+            ModuleCode.M06_ATENDIMENTO,
+        ],
+    )
+    orchestrator.register_event_route(
+        "scheduler_daily",
+        [
+            ModuleCode.M02_RELATORIOS,
+            ModuleCode.M12_ALERTAS,
+            ModuleCode.M04_CAMPANHAS,
+        ],
+    )
+    orchestrator.register_event_route(
+        "scheduler_weekly",
+        [
+            ModuleCode.M02_RELATORIOS,
+            ModuleCode.M07_RETROALIMENTACAO,
+        ],
+    )
 
-    orchestrator.register_event_route("smooth_group_message", [
-        ModuleCode.M15_MONITOR_SMOOTH,
-    ])
-    orchestrator.register_event_route("scheduler_weekly_sdr_analyze", [
-        ModuleCode.M14_SUPORTE_MARI,
-    ])
-    orchestrator.register_event_route("scheduler_weekly_smooth_insights", [
-        ModuleCode.M15_MONITOR_SMOOTH,
-    ])
+    orchestrator.register_event_route(
+        "smooth_group_message",
+        [
+            ModuleCode.M15_MONITOR_SMOOTH,
+        ],
+    )
+    orchestrator.register_event_route(
+        "scheduler_weekly_sdr_analyze",
+        [
+            ModuleCode.M14_SUPORTE_MARI,
+        ],
+    )
+    orchestrator.register_event_route(
+        "scheduler_weekly_smooth_insights",
+        [
+            ModuleCode.M15_MONITOR_SMOOTH,
+        ],
+    )
 
     # ── Eventos N8N (InLead → N8N → Villa) ──
-    orchestrator.register_event_route("n8n_inlead_new_lead", [
-        ModuleCode.M02_RELATORIOS,
-        ModuleCode.M14_SUPORTE_MARI,
-    ])
-    orchestrator.register_event_route("n8n_kommo_lead_updated", [
-        ModuleCode.M02_RELATORIOS,
-    ])
-    orchestrator.register_event_route("n8n_capi_event", [
-        ModuleCode.M04_CAMPANHAS,
-    ])
-    orchestrator.register_event_route("n8n_report_request", [
-        ModuleCode.M02_RELATORIOS,
-    ])
+    orchestrator.register_event_route(
+        "n8n_inlead_new_lead",
+        [
+            ModuleCode.M02_RELATORIOS,
+            ModuleCode.M14_SUPORTE_MARI,
+        ],
+    )
+    orchestrator.register_event_route(
+        "n8n_kommo_lead_updated",
+        [
+            ModuleCode.M02_RELATORIOS,
+        ],
+    )
+    orchestrator.register_event_route(
+        "n8n_capi_event",
+        [
+            ModuleCode.M04_CAMPANHAS,
+        ],
+    )
+    orchestrator.register_event_route(
+        "n8n_report_request",
+        [
+            ModuleCode.M02_RELATORIOS,
+        ],
+    )
 
     return orchestrator

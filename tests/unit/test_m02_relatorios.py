@@ -35,6 +35,7 @@ pytestmark = pytest.mark.unit
 
 # ── Factories ────────────────────────────────────────────────────────────────
 
+
 def make_client(
     slug: str = "clinica-demo",
     meta_account: str = "act_123456789",
@@ -92,7 +93,9 @@ def make_meta_insights(
             "clicks": str(clicks),
             "ctr": str(round(clicks / impressions * 100, 2)) if impressions else "0",
             "actions": [{"action_type": "lead", "value": str(leads)}],
-            "cost_per_action_type": [{"action_type": "lead", "value": str(round(spend / leads, 2)) if leads else "0"}],
+            "cost_per_action_type": [
+                {"action_type": "lead", "value": str(round(spend / leads, 2)) if leads else "0"}
+            ],
         }
     ]
 
@@ -105,6 +108,7 @@ FEEDBACK_CONTEXT = {
 
 
 # ── Fixture base ──────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def setup_m02():
@@ -125,8 +129,8 @@ def setup_m02():
 
 # ── Testes de execução básica ─────────────────────────────────────────────────
 
-class TestExecutarRelatorio:
 
+class TestExecutarRelatorio:
     async def test_relatorio_semanal_retorna_success_true(self, setup_m02):
         client, db, patches = setup_m02
 
@@ -134,22 +138,43 @@ class TestExecutarRelatorio:
             from modules.m02_relatorios.agent import M02Relatorios
 
             module = M02Relatorios()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch("modules.m02_relatorios.agent.DataCollector") as mock_collector,
+            ):
                 mock_ask.return_value = make_claude_response()
-                mock_collector.return_value.collect_all = AsyncMock(return_value={
-                    "client": "clinica-demo",
-                    "meta_ads": {"total_spend": 500.0, "total_leads": 10, "avg_ctr": 3.0, "avg_cpl": 50.0, "campaigns": []},
-                    "leads_summary": {"total": 10, "qualified": 6, "won": 2, "total_value": 4000.0, "qualification_rate": 60.0},
-                    "appointments": {"total": 5, "show_rate": 80.0},
-                    "consolidated": {
-                        "total_investment": 500.0, "total_leads": 10, "total_qualified": 6,
-                        "total_won": 2, "total_revenue": 4000.0,
-                        "cpl_consolidated": 50.0, "roi": 700.0, "conversion_rate": 20.0,
-                        "show_rate": 80.0, "qualification_rate": 60.0,
-                    },
-                })
+                mock_collector.return_value.collect_all = AsyncMock(
+                    return_value={
+                        "client": "clinica-demo",
+                        "meta_ads": {
+                            "total_spend": 500.0,
+                            "total_leads": 10,
+                            "avg_ctr": 3.0,
+                            "avg_cpl": 50.0,
+                            "campaigns": [],
+                        },
+                        "leads_summary": {
+                            "total": 10,
+                            "qualified": 6,
+                            "won": 2,
+                            "total_value": 4000.0,
+                            "qualification_rate": 60.0,
+                        },
+                        "appointments": {"total": 5, "show_rate": 80.0},
+                        "consolidated": {
+                            "total_investment": 500.0,
+                            "total_leads": 10,
+                            "total_qualified": 6,
+                            "total_won": 2,
+                            "total_revenue": 4000.0,
+                            "cpl_consolidated": 50.0,
+                            "roi": 700.0,
+                            "conversion_rate": 20.0,
+                            "show_rate": 80.0,
+                            "qualification_rate": 60.0,
+                        },
+                    }
+                )
 
                 result = await module.execute(
                     message="Relatório semanal da Clínica Demo",
@@ -166,16 +191,31 @@ class TestExecutarRelatorio:
             from modules.m02_relatorios.agent import M02Relatorios
 
             module = M02Relatorios()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch("modules.m02_relatorios.agent.DataCollector") as mock_collector,
+            ):
                 mock_ask.return_value = make_claude_response()
-                mock_collector.return_value.collect_all = AsyncMock(return_value={
-                    "client": "clinica-demo", "meta_ads": {}, "google_ads": None,
-                    "leads_summary": {"total": 0, "qualified": 0, "won": 0, "total_value": 0, "qualification_rate": 0},
-                    "appointments": {"total": 0, "show_rate": 0},
-                    "consolidated": {"total_investment": 0, "total_leads": 0, "cpl_consolidated": 0},
-                })
+                mock_collector.return_value.collect_all = AsyncMock(
+                    return_value={
+                        "client": "clinica-demo",
+                        "meta_ads": {},
+                        "google_ads": None,
+                        "leads_summary": {
+                            "total": 0,
+                            "qualified": 0,
+                            "won": 0,
+                            "total_value": 0,
+                            "qualification_rate": 0,
+                        },
+                        "appointments": {"total": 0, "show_rate": 0},
+                        "consolidated": {
+                            "total_investment": 0,
+                            "total_leads": 0,
+                            "cpl_consolidated": 0,
+                        },
+                    }
+                )
 
                 result = await module.execute(
                     message="Semanal",
@@ -193,16 +233,31 @@ class TestExecutarRelatorio:
             from modules.m02_relatorios.agent import M02Relatorios
 
             module = M02Relatorios()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch("modules.m02_relatorios.agent.DataCollector") as mock_collector,
+            ):
                 mock_ask.return_value = make_claude_response()
-                mock_collector.return_value.collect_all = AsyncMock(return_value={
-                    "client": "clinica-demo", "meta_ads": None, "google_ads": None,
-                    "leads_summary": {"total": 5, "qualified": 2, "won": 1, "total_value": 2000, "qualification_rate": 40},
-                    "appointments": {"total": 3, "show_rate": 66.7},
-                    "consolidated": {"total_investment": 300, "total_leads": 5, "cpl_consolidated": 60},
-                })
+                mock_collector.return_value.collect_all = AsyncMock(
+                    return_value={
+                        "client": "clinica-demo",
+                        "meta_ads": None,
+                        "google_ads": None,
+                        "leads_summary": {
+                            "total": 5,
+                            "qualified": 2,
+                            "won": 1,
+                            "total_value": 2000,
+                            "qualification_rate": 40,
+                        },
+                        "appointments": {"total": 3, "show_rate": 66.7},
+                        "consolidated": {
+                            "total_investment": 300,
+                            "total_leads": 5,
+                            "cpl_consolidated": 60,
+                        },
+                    }
+                )
 
                 result = await module.execute(
                     message="Relatório semanal",
@@ -217,6 +272,7 @@ class TestExecutarRelatorio:
 
 # ── Testes de detecção de tipo de relatório ───────────────────────────────────
 
+
 class TestDeteccaoTipoRelatorio:
     """
     _detect_report_type() usa o texto da mensagem para inferir o tipo.
@@ -225,42 +281,49 @@ class TestDeteccaoTipoRelatorio:
 
     def test_detecta_diario_pelo_texto(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         tipo = module._detect_report_type("Quero o relatório diário do Ottoboni", {})
         assert tipo == "daily"
 
     def test_detecta_semanal_pelo_texto(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         tipo = module._detect_report_type("Manda o relatório semanal", {})
         assert tipo == "weekly"
 
     def test_detecta_mensal_pelo_texto(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         tipo = module._detect_report_type("Preciso do relatório mensal", {})
         assert tipo == "monthly"
 
     def test_detecta_diario_pelo_context_scheduler(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         tipo = module._detect_report_type("", {"event_type": "scheduler_daily"})
         assert tipo == "daily"
 
     def test_detecta_semanal_pelo_context_scheduler(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         tipo = module._detect_report_type("", {"event_type": "scheduler_weekly"})
         assert tipo == "weekly"
 
     def test_default_e_weekly_quando_ambiguo(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         tipo = module._detect_report_type("Como estão as campanhas?", {})
         assert tipo == "weekly"
 
 
 # ── Testes de cálculo de período ─────────────────────────────────────────────
+
 
 class TestDeteccaoPeriodo:
     """
@@ -270,6 +333,7 @@ class TestDeteccaoPeriodo:
 
     def test_periodo_daily_e_ontem(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         start, end = module._detect_period("daily")
         hoje = date.today()
@@ -278,6 +342,7 @@ class TestDeteccaoPeriodo:
 
     def test_periodo_weekly_e_7_dias(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         start, end = module._detect_period("weekly")
         hoje = date.today()
@@ -286,6 +351,7 @@ class TestDeteccaoPeriodo:
 
     def test_periodo_monthly_e_mes_anterior(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         start, end = module._detect_period("monthly")
         # end deve ser o último dia do mês anterior
@@ -295,6 +361,7 @@ class TestDeteccaoPeriodo:
 
 
 # ── Testes do DataCollector._consolidate() ───────────────────────────────────
+
 
 class TestConsolidacao:
     """
@@ -310,7 +377,13 @@ class TestConsolidacao:
         data = {
             "meta_ads": {"total_spend": 500.0, "total_leads": 10},
             "google_ads": None,
-            "leads_summary": {"total": 10, "qualified": 5, "won": 2, "total_value": 4000.0, "qualification_rate": 50.0},
+            "leads_summary": {
+                "total": 10,
+                "qualified": 5,
+                "won": 2,
+                "total_value": 4000.0,
+                "qualification_rate": 50.0,
+            },
             "appointments": {"total": 4, "show_rate": 75.0},
         }
 
@@ -328,7 +401,13 @@ class TestConsolidacao:
         data = {
             "meta_ads": {"total_spend": 500.0, "total_leads": 0},
             "google_ads": None,
-            "leads_summary": {"total": 0, "qualified": 0, "won": 0, "total_value": 0, "qualification_rate": 0},
+            "leads_summary": {
+                "total": 0,
+                "qualified": 0,
+                "won": 0,
+                "total_value": 0,
+                "qualification_rate": 0,
+            },
             "appointments": {"show_rate": 0},
         }
 
@@ -344,7 +423,13 @@ class TestConsolidacao:
         data = {
             "meta_ads": {"total_spend": 1000.0, "total_leads": 20},
             "google_ads": None,
-            "leads_summary": {"total": 20, "qualified": 10, "won": 5, "total_value": 5000.0, "qualification_rate": 50.0},
+            "leads_summary": {
+                "total": 20,
+                "qualified": 10,
+                "won": 5,
+                "total_value": 5000.0,
+                "qualification_rate": 50.0,
+            },
             "appointments": {"show_rate": 80.0},
         }
 
@@ -361,7 +446,13 @@ class TestConsolidacao:
         data = {
             "meta_ads": None,
             "google_ads": None,
-            "leads_summary": {"total": 5, "qualified": 2, "won": 1, "total_value": 2000.0, "qualification_rate": 40.0},
+            "leads_summary": {
+                "total": 5,
+                "qualified": 2,
+                "won": 1,
+                "total_value": 2000.0,
+                "qualification_rate": 40.0,
+            },
             "appointments": {"show_rate": 60.0},
         }
 
@@ -377,7 +468,13 @@ class TestConsolidacao:
         data = {
             "meta_ads": {"total_spend": 500.0, "total_leads": 20},
             "google_ads": None,
-            "leads_summary": {"total": 20, "qualified": 10, "won": 4, "total_value": 8000.0, "qualification_rate": 50.0},
+            "leads_summary": {
+                "total": 20,
+                "qualified": 10,
+                "won": 4,
+                "total_value": 8000.0,
+                "qualification_rate": 50.0,
+            },
             "appointments": {"show_rate": 80.0},
         }
 
@@ -394,7 +491,13 @@ class TestConsolidacao:
         data = {
             "meta_ads": {"total_spend": 300.0, "total_leads": 5},
             "google_ads": {"total_spend": 200.0},
-            "leads_summary": {"total": 5, "qualified": 2, "won": 1, "total_value": 1000.0, "qualification_rate": 40.0},
+            "leads_summary": {
+                "total": 5,
+                "qualified": 2,
+                "won": 1,
+                "total_value": 1000.0,
+                "qualification_rate": 40.0,
+            },
             "appointments": {"show_rate": 60.0},
         }
 
@@ -405,8 +508,8 @@ class TestConsolidacao:
 
 # ── Testes de resiliência ─────────────────────────────────────────────────────
 
-class TestResiliencia:
 
+class TestResiliencia:
     async def test_cliente_nao_encontrado_retorna_success_false(self):
         db = make_db(client=None)
 
@@ -430,15 +533,26 @@ class TestResiliencia:
             from modules.m02_relatorios.agent import M02Relatorios
 
             module = M02Relatorios()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch("modules.m02_relatorios.agent.DataCollector") as mock_collector:
-
-                mock_collector.return_value.collect_all = AsyncMock(return_value={
-                    "client": "clinica-demo", "meta_ads": None, "google_ads": None,
-                    "leads_summary": {"total": 0, "qualified": 0, "won": 0, "total_value": 0, "qualification_rate": 0},
-                    "appointments": {"show_rate": 0},
-                    "consolidated": {},
-                })
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch("modules.m02_relatorios.agent.DataCollector") as mock_collector,
+            ):
+                mock_collector.return_value.collect_all = AsyncMock(
+                    return_value={
+                        "client": "clinica-demo",
+                        "meta_ads": None,
+                        "google_ads": None,
+                        "leads_summary": {
+                            "total": 0,
+                            "qualified": 0,
+                            "won": 0,
+                            "total_value": 0,
+                            "qualification_rate": 0,
+                        },
+                        "appointments": {"show_rate": 0},
+                        "consolidated": {},
+                    }
+                )
                 mock_ask.side_effect = Exception("Claude timeout")
 
                 result = await module.execute(
@@ -451,22 +565,27 @@ class TestResiliencia:
 
 # ── Testes de can_handle ──────────────────────────────────────────────────────
 
-class TestCanHandle:
 
+class TestCanHandle:
     async def test_alta_confianca_para_relatorio(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
-        score = await module.can_handle("Quero ver os resultados e métricas de performance da semana")
+        score = await module.can_handle(
+            "Quero ver os resultados e métricas de performance da semana"
+        )
         assert score >= 0.8
 
     async def test_confianca_maxima_para_scheduler(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         score = await module.can_handle("", context={"event_type": "scheduler_weekly"})
         assert score >= 0.9
 
     async def test_confianca_zero_para_roteiro(self):
         from modules.m02_relatorios.agent import M02Relatorios
+
         module = M02Relatorios()
         score = await module.can_handle("Gera um gancho para o vídeo de implante")
         assert score == 0.0

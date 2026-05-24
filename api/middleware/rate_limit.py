@@ -4,7 +4,6 @@ Limita requisições por usuário/IP usando Redis.
 Protege a API contra abuso e controla custo da Anthropic API.
 """
 
-
 import redis.asyncio as aioredis
 from fastapi import HTTPException, Request, status
 
@@ -14,10 +13,10 @@ from core.config import settings
 class RateLimiter:
     """
     Rate limiter baseado em Redis com sliding window.
-    
+
     Uso como dependency:
         limiter = RateLimiter(max_requests=60, window_seconds=60)
-        
+
         @router.post("/command")
         async def command(request: Request, _=Depends(limiter)):
             ...

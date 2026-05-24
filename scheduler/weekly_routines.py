@@ -60,11 +60,14 @@ async def run_weekly_routine() -> dict:
             diag_result = await _module_diagnostics(db)
             report["tasks"].append({"task": "module_diagnostics", **diag_result})
         except Exception as e:
-            report["tasks"].append({"task": "module_diagnostics", "success": False, "error": str(e)})
+            report["tasks"].append(
+                {"task": "module_diagnostics", "success": False, "error": str(e)}
+            )
 
         # ── 4. Política de retenção (LGPD) ──
         try:
             from security.data_retention import enforce_retention
+
             retention_result = await enforce_retention()
             report["tasks"].append({"task": "data_retention", "success": True, **retention_result})
         except Exception as e:
@@ -90,9 +93,7 @@ async def run_weekly_routine() -> dict:
 
 async def _generate_weekly_reports(db: AsyncSession) -> dict:
     """Gera relatórios semanais para todos os clientes ativos."""
-    result = await db.execute(
-        select(Client).where(Client.status == ClientStatus.ACTIVE)
-    )
+    result = await db.execute(select(Client).where(Client.status == ClientStatus.ACTIVE))
     clients = result.scalars().all()
 
     generated = 0
@@ -107,6 +108,7 @@ async def _generate_weekly_reports(db: AsyncSession) -> dict:
 
             # Por ora, criar placeholder de relatório
             from uuid import uuid4
+
             report_entry = Report(
                 id=str(uuid4()),
                 client_id=client.id,
@@ -135,7 +137,7 @@ async def _retroalimentacao_analysis(db: AsyncSession) -> dict:
     """
     Análise semanal de retroalimentação comercial ↔ marketing.
     Cruza dados de conversão do Kommo com performance de campanhas.
-    
+
     Perguntas que responde:
         - Leads qualificados estão convertendo?
         - Leads não qualificados estão sendo gerados por qual campanha?
@@ -147,10 +149,7 @@ async def _retroalimentacao_analysis(db: AsyncSession) -> dict:
     week_start = datetime.utcnow() - timedelta(days=7)
 
     # Leads da semana por status
-    result = await db.execute(
-        select(Lead)
-        .where(Lead.created_at >= week_start)
-    )
+    result = await db.execute(select(Lead).where(Lead.created_at >= week_start))
     week_leads = result.scalars().all()
 
     total = len(week_leads)
@@ -189,7 +188,8 @@ async def _module_diagnostics(db: AsyncSession) -> dict:
 
     # Identificar módulos com problemas
     problem_modules = [
-        name for name, stats in diagnostics.items()
+        name
+        for name, stats in diagnostics.items()
         if stats.get("success_rate", 100) < 70 and stats["total"] >= 3
     ]
 

@@ -15,13 +15,13 @@ from core.config import settings
 class MetaAdsClient:
     """
     Cliente async para Meta Marketing API + Conversion API.
-    
+
     Uso:
         meta = MetaAdsClient()
-        
+
         # Métricas de campanha
         insights = await meta.get_campaign_insights("act_123", date_start, date_end)
-        
+
         # Enviar evento de conversão via CAPI
         await meta.send_conversion_event(
             event_name="Lead",
@@ -57,7 +57,7 @@ class MetaAdsClient:
     ) -> list[dict]:
         """
         Busca insights (métricas) de uma conta de anúncios.
-        
+
         Args:
             ad_account_id: ID da conta (ex: "act_123456789")
             date_start: Data início
@@ -67,11 +67,20 @@ class MetaAdsClient:
         """
         if not fields:
             fields = [
-                "campaign_name", "campaign_id",
-                "spend", "impressions", "clicks", "ctr",
-                "cpc", "cpm", "reach", "frequency",
-                "actions", "cost_per_action_type",
-                "conversions", "conversion_values",
+                "campaign_name",
+                "campaign_id",
+                "spend",
+                "impressions",
+                "clicks",
+                "ctr",
+                "cpc",
+                "cpm",
+                "reach",
+                "frequency",
+                "actions",
+                "cost_per_action_type",
+                "conversions",
+                "conversion_values",
             ]
 
         params = {
@@ -156,9 +165,9 @@ class MetaAdsClient:
     ) -> dict:
         """
         Envia evento de conversão via Conversion API.
-        
+
         Eventos comuns: "Lead", "Schedule", "Purchase", "Contact"
-        
+
         Os dados pessoais (email, phone) são hasheados com SHA256
         antes do envio, conforme exigido pela Meta.
         """

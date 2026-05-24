@@ -69,14 +69,31 @@ class M04Campanhas(BaseModule):
     )
 
     KEYWORDS = [
-        "campanha", "campanhas", "campaign",
-        "performance", "desempenho",
-        "otimizar", "otimização", "otimizacao",
-        "meta ads", "facebook", "instagram", "google ads",
-        "cpl", "ctr", "roas", "frequência", "frequencia",
-        "anúncio", "anuncio", "ads",
-        "criativo", "criativos",
-        "budget", "orçamento", "orcamento",
+        "campanha",
+        "campanhas",
+        "campaign",
+        "performance",
+        "desempenho",
+        "otimizar",
+        "otimização",
+        "otimizacao",
+        "meta ads",
+        "facebook",
+        "instagram",
+        "google ads",
+        "cpl",
+        "ctr",
+        "roas",
+        "frequência",
+        "frequencia",
+        "anúncio",
+        "anuncio",
+        "ads",
+        "criativo",
+        "criativos",
+        "budget",
+        "orçamento",
+        "orcamento",
     ]
 
     async def can_handle(self, message: str, context: dict | None = None) -> float:
@@ -84,9 +101,12 @@ class M04Campanhas(BaseModule):
         if context and "campanhas" in context.get("event_type", ""):
             return 0.9
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
-        if matches >= 3: return 0.9
-        if matches >= 2: return 0.75
-        if matches >= 1: return 0.55
+        if matches >= 3:
+            return 0.9
+        if matches >= 2:
+            return 0.75
+        if matches >= 1:
+            return 0.55
         return 0.0
 
     async def execute(
@@ -112,7 +132,9 @@ class M04Campanhas(BaseModule):
         meta_data = {}
         if client.meta_ad_account_id:
             try:
-                meta_data = await self._collect_meta_insights(client.meta_ad_account_id, period_start, period_end)
+                meta_data = await self._collect_meta_insights(
+                    client.meta_ad_account_id, period_start, period_end
+                )
             except Exception as e:
                 meta_data = {"error": str(e)}
 
@@ -135,7 +157,9 @@ class M04Campanhas(BaseModule):
 
         # Memória
         memory = await feedback_loop.build_context(
-            module=self.code, action="analisar_campanha", client_slug=client.slug,
+            module=self.code,
+            action="analisar_campanha",
+            client_slug=client.slug,
         )
 
         # Análise via Claude
@@ -163,7 +187,9 @@ class M04Campanhas(BaseModule):
 
         # Salvar análise nas campanhas
         result_db = await db.execute(
-            select(Campaign).where(Campaign.client_id == client.id).where(Campaign.status == "active")
+            select(Campaign)
+            .where(Campaign.client_id == client.id)
+            .where(Campaign.status == "active")
         )
         for campaign in result_db.scalars().all():
             campaign.villa_analysis = analysis.get("summary")
@@ -173,9 +199,13 @@ class M04Campanhas(BaseModule):
 
         # Registrar decisão
         await feedback_loop.record_decision(
-            module=self.code, action="analisar_campanha",
+            module=self.code,
+            action="analisar_campanha",
             input_data={"client": client.slug, "period": f"{period_start} a {period_end}"},
-            output_data={"health_score": analysis.get("health_score"), "recommendations_count": len(analysis.get("recommendations", []))},
+            output_data={
+                "health_score": analysis.get("health_score"),
+                "recommendations_count": len(analysis.get("recommendations", [])),
+            },
             reasoning=memory["reasoning_context"],
             client_slug=client.slug,
             tokens_input=response.get("tokens_input", 0),
@@ -185,12 +215,16 @@ class M04Campanhas(BaseModule):
         )
 
         # Formatar resposta
-        msg_lines = [f"📊 **Análise — {client.name}** (Score: {analysis.get('health_score', '?')}/100)"]
+        msg_lines = [
+            f"📊 **Análise — {client.name}** (Score: {analysis.get('health_score', '?')}/100)"
+        ]
         msg_lines.append(analysis.get("summary", ""))
         if analysis.get("anomalies"):
             msg_lines.append("\n⚠️ **Anomalias:**")
             for a in analysis["anomalies"][:3]:
-                msg_lines.append(f"  • {a.get('metric', '?')}: {a.get('value')} (esperado: {a.get('expected')})")
+                msg_lines.append(
+                    f"  • {a.get('metric', '?')}: {a.get('value')} (esperado: {a.get('expected')})"
+                )
         if analysis.get("recommendations"):
             msg_lines.append("\n💡 **Recomendações:**")
             for r in analysis["recommendations"][:5]:

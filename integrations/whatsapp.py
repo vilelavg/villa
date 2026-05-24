@@ -4,7 +4,6 @@ Envio de mensagens, templates, mídia e reações.
 Usa a Cloud API oficial da Meta.
 """
 
-
 import httpx
 
 from core.config import settings
@@ -13,7 +12,7 @@ from core.config import settings
 class WhatsAppClient:
     """
     Cliente async para WhatsApp Business Cloud API.
-    
+
     Uso:
         wa = WhatsAppClient()
         await wa.send_text("5511999998888", "Olá! Seu relatório está pronto.")
@@ -46,7 +45,7 @@ class WhatsAppClient:
     ) -> dict:
         """
         Envia mensagem de texto simples.
-        
+
         Args:
             to: Número do destinatário com código do país (ex: "5511999998888")
             text: Texto da mensagem
@@ -76,7 +75,7 @@ class WhatsAppClient:
     ) -> dict:
         """
         Envia mensagem de template pré-aprovado.
-        
+
         Args:
             to: Número do destinatário
             template_name: Nome do template aprovado no Meta Business
@@ -85,14 +84,13 @@ class WhatsAppClient:
         """
         components = []
         if parameters:
-            body_params = [
-                {"type": "text", "text": v}
-                for k, v in sorted(parameters.items())
-            ]
-            components.append({
-                "type": "body",
-                "parameters": body_params,
-            })
+            body_params = [{"type": "text", "text": v} for k, v in sorted(parameters.items())]
+            components.append(
+                {
+                    "type": "body",
+                    "parameters": body_params,
+                }
+            )
 
         payload = {
             "messaging_product": "whatsapp",
@@ -122,7 +120,7 @@ class WhatsAppClient:
     ) -> dict:
         """
         Envia mensagem com botões de resposta rápida.
-        
+
         Args:
             to: Número do destinatário
             body: Texto principal
@@ -168,7 +166,7 @@ class WhatsAppClient:
     ) -> dict:
         """
         Envia mensagem com lista de opções.
-        
+
         Args:
             sections: [{"title": "Horários", "rows": [{"id": "h1", "title": "09:00"}]}]
         """

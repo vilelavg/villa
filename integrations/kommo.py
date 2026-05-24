@@ -4,7 +4,6 @@ CRUD de leads, pipelines, cards e notas.
 Usa a API REST v4 do Kommo.
 """
 
-
 import httpx
 
 from core.config import settings
@@ -13,7 +12,7 @@ from core.config import settings
 class KommoClient:
     """
     Cliente async para a API do Kommo CRM.
-    
+
     Uso:
         kommo = KommoClient()
         leads = await kommo.get_leads(pipeline_id=12345)
@@ -85,9 +84,7 @@ class KommoClient:
         if custom_fields:
             lead_data["custom_fields_values"] = custom_fields
         if tags:
-            lead_data["_embedded"] = {
-                "tags": [{"name": t} for t in tags]
-            }
+            lead_data["_embedded"] = {"tags": [{"name": t} for t in tags]}
 
         response = await self._client.post("/leads", json=[lead_data])
         response.raise_for_status()
@@ -96,7 +93,7 @@ class KommoClient:
     async def update_lead(self, lead_id: int, **fields) -> dict:
         """
         Atualiza campos de um lead.
-        
+
         Uso:
             await kommo.update_lead(lead_id=123, price=6000, status_id=142)
         """
@@ -128,7 +125,7 @@ class KommoClient:
     ) -> dict:
         """
         Adiciona uma nota a um lead.
-        
+
         Args:
             lead_id: ID do lead
             text: Texto da nota
@@ -136,10 +133,12 @@ class KommoClient:
         """
         response = await self._client.post(
             f"/leads/{lead_id}/notes",
-            json=[{
-                "note_type": note_type,
-                "params": {"text": text},
-            }],
+            json=[
+                {
+                    "note_type": note_type,
+                    "params": {"text": text},
+                }
+            ],
         )
         response.raise_for_status()
         return response.json().get("_embedded", {}).get("notes", [{}])[0]
@@ -183,15 +182,19 @@ class KommoClient:
         """Cria um contato e retorna os dados."""
         contact = {"name": name, "custom_fields_values": []}
         if phone:
-            contact["custom_fields_values"].append({
-                "field_code": "PHONE",
-                "values": [{"value": phone, "enum_code": "WORK"}],
-            })
+            contact["custom_fields_values"].append(
+                {
+                    "field_code": "PHONE",
+                    "values": [{"value": phone, "enum_code": "WORK"}],
+                }
+            )
         if email:
-            contact["custom_fields_values"].append({
-                "field_code": "EMAIL",
-                "values": [{"value": email, "enum_code": "WORK"}],
-            })
+            contact["custom_fields_values"].append(
+                {
+                    "field_code": "EMAIL",
+                    "values": [{"value": email, "enum_code": "WORK"}],
+                }
+            )
 
         response = await self._client.post("/contacts", json=[contact])
         response.raise_for_status()

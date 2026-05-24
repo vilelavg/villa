@@ -4,7 +4,6 @@ Upload, download e busca de arquivos.
 Usado para relatórios PDF, criativos, documentos de clientes.
 """
 
-
 import httpx
 
 from core.config import settings
@@ -42,7 +41,8 @@ class GoogleDriveClient:
             "iss": creds["client_email"],
             "scope": "https://www.googleapis.com/auth/drive",
             "aud": "https://oauth2.googleapis.com/token",
-            "iat": now, "exp": now + 3600,
+            "iat": now,
+            "exp": now + 3600,
         }
         signed = jose_jwt.encode(payload, creds["private_key"], algorithm="RS256")
         response = await self._client.post(
@@ -72,7 +72,7 @@ class GoogleDriveClient:
     ) -> list[dict]:
         """
         Busca arquivos no Drive.
-        
+
         Args:
             query: Texto de busca (nome do arquivo)
             folder_id: Buscar dentro de uma pasta específica
@@ -102,6 +102,7 @@ class GoogleDriveClient:
     ) -> dict:
         """Upload de arquivo para o Drive."""
         import json
+
         metadata = {"name": filename, "mimeType": mime_type}
         if folder_id:
             metadata["parents"] = [folder_id]

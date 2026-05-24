@@ -48,14 +48,18 @@ async def run_monitors() -> dict:
             sla_result = await _monitor_response_sla(db)
             report["monitors"].append({"monitor": "response_sla", **sla_result})
         except Exception as e:
-            report["monitors"].append({"monitor": "response_sla", "success": False, "error": str(e)})
+            report["monitors"].append(
+                {"monitor": "response_sla", "success": False, "error": str(e)}
+            )
 
         # ── Monitor 2: Budget pacing ──
         try:
             budget_result = await _monitor_budget_pacing(db)
             report["monitors"].append({"monitor": "budget_pacing", **budget_result})
         except Exception as e:
-            report["monitors"].append({"monitor": "budget_pacing", "success": False, "error": str(e)})
+            report["monitors"].append(
+                {"monitor": "budget_pacing", "success": False, "error": str(e)}
+            )
 
         # ── Monitor 3: Taxa de show (comparecimento) ──
         try:
@@ -69,7 +73,9 @@ async def run_monitors() -> dict:
             health_result = await _monitor_module_health(db)
             report["monitors"].append({"monitor": "module_health", **health_result})
         except Exception as e:
-            report["monitors"].append({"monitor": "module_health", "success": False, "error": str(e)})
+            report["monitors"].append(
+                {"monitor": "module_health", "success": False, "error": str(e)}
+            )
 
     return report
 
@@ -78,7 +84,7 @@ async def _monitor_response_sla(db: AsyncSession) -> dict:
     """
     Verifica leads que não receberam resposta dentro do SLA.
     SLA padrão: 15 minutos para primeiro contato.
-    
+
     Se o lead chegou há mais de 15 min e ainda está como NEW,
     ninguém (nem o Villa nem a SDR) respondeu.
     """
@@ -86,9 +92,7 @@ async def _monitor_response_sla(db: AsyncSession) -> dict:
     cutoff = datetime.utcnow() - timedelta(minutes=sla_minutes)
 
     result = await db.execute(
-        select(Lead)
-        .where(Lead.status == LeadStatus.NEW)
-        .where(Lead.created_at < cutoff)
+        select(Lead).where(Lead.status == LeadStatus.NEW).where(Lead.created_at < cutoff)
     )
     breached_leads = result.scalars().all()
 
@@ -142,13 +146,11 @@ async def _monitor_response_sla(db: AsyncSession) -> dict:
 async def _monitor_budget_pacing(db: AsyncSession) -> dict:
     """
     Verifica se campanhas estão gastando mais rápido que o esperado.
-    
+
     Lógica: se gastou mais de 60% do budget diário antes das 14h,
     o ritmo está acelerado e pode estourar.
     """
-    result = await db.execute(
-        select(Campaign).where(Campaign.status == "active")
-    )
+    result = await db.execute(select(Campaign).where(Campaign.status == "active"))
     campaigns = result.scalars().all()
 
     alerts_created = 0
@@ -173,9 +175,7 @@ async def _monitor_budget_pacing(db: AsyncSession) -> dict:
 
         # Se gastou mais de 150% do esperado pro horário
         if actual_pacing > expected_pacing * 1.5 and actual_pacing > 0.5:
-            client_result = await db.execute(
-                select(Client).where(Client.id == campaign.client_id)
-            )
+            client_result = await db.execute(select(Client).where(Client.id == campaign.client_id))
             client = client_result.scalar_one_or_none()
 
             alert = Alert(
@@ -187,7 +187,7 @@ async def _monitor_budget_pacing(db: AsyncSession) -> dict:
                 message=(
                     f"Campanha gastou {actual_pacing:.0%} do budget diário, "
                     f"mas apenas {expected_pacing:.0%} do dia passou. "
-                    f"Projeção: vai estourar o budget em {int((1-actual_pacing)/(actual_pacing/hour))}h."
+                    f"Projeção: vai estourar o budget em {int((1 - actual_pacing) / (actual_pacing / hour))}h."
                 ),
                 suggested_action="Verificar se há um pico de impressões incomum. Considerar ajustar bid ou pausar temporariamente.",
                 metric_name="budget_pacing",
@@ -275,10 +275,12 @@ async def _monitor_module_health(db: AsyncSession) -> dict:
     for module_code in ModuleCode:
         error_count = await audit.count_errors(module=module_code, hours=1)
         if error_count >= 5:
-            problems.append({
-                "module": module_code.value,
-                "errors_last_hour": error_count,
-            })
+            problems.append(
+                {
+                    "module": module_code.value,
+                    "errors_last_hour": error_count,
+                }
+            )
 
     if problems:
         modules_text = ", ".join(f"{p['module']} ({p['errors_last_hour']} erros)" for p in problems)

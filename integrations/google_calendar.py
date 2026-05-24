@@ -14,7 +14,7 @@ from core.config import settings
 class GoogleCalendarClient:
     """
     Cliente para Google Calendar API via Service Account.
-    
+
     Uso:
         cal = GoogleCalendarClient()
         slots = await cal.get_free_slots("calendar_id@google.com", date.today())
@@ -103,7 +103,7 @@ class GoogleCalendarClient:
     ) -> list[dict]:
         """
         Retorna slots disponíveis em um dia.
-        
+
         Returns:
             Lista de {"start": datetime, "end": datetime}
         """
@@ -117,10 +117,12 @@ class GoogleCalendarClient:
             start = ev.get("start", {}).get("dateTime", "")
             end = ev.get("end", {}).get("dateTime", "")
             if start and end:
-                busy.append((
-                    datetime.fromisoformat(start.replace("Z", "+00:00")),
-                    datetime.fromisoformat(end.replace("Z", "+00:00")),
-                ))
+                busy.append(
+                    (
+                        datetime.fromisoformat(start.replace("Z", "+00:00")),
+                        datetime.fromisoformat(end.replace("Z", "+00:00")),
+                    )
+                )
 
         # Gerar slots livres
         slots = []
@@ -129,10 +131,7 @@ class GoogleCalendarClient:
 
         while current + slot_delta <= day_end:
             slot_end = current + slot_delta
-            is_free = all(
-                slot_end <= b_start or current >= b_end
-                for b_start, b_end in busy
-            )
+            is_free = all(slot_end <= b_start or current >= b_end for b_start, b_end in busy)
             if is_free:
                 slots.append({"start": current.isoformat(), "end": slot_end.isoformat()})
             current += slot_delta

@@ -82,10 +82,15 @@ class M06Atendimento(BaseModule):
     STAND_BY = True
 
     KEYWORDS = [
-        "suporte", "dúvida", "duvida",
-        "cliente", "paciente",
-        "pós-venda", "pos-venda",
-        "reclamação", "reclamacao",
+        "suporte",
+        "dúvida",
+        "duvida",
+        "cliente",
+        "paciente",
+        "pós-venda",
+        "pos-venda",
+        "reclamação",
+        "reclamacao",
         "faq",
     ]
 
@@ -98,8 +103,10 @@ class M06Atendimento(BaseModule):
             return 0.4  # Baixa prioridade pra leads novos (M03 cuida)
         msg_lower = message.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
-        if matches >= 2: return 0.8
-        if matches >= 1: return 0.5
+        if matches >= 2:
+            return 0.8
+        if matches >= 1:
+            return 0.5
         return 0.0
 
     async def execute(
@@ -137,7 +144,9 @@ class M06Atendimento(BaseModule):
 
         from_number = payload.get("from", "")
         msg_data = payload.get("message", {})
-        msg_text = msg_data.get("text", {}).get("body", "") if msg_data.get("type") == "text" else ""
+        msg_text = (
+            msg_data.get("text", {}).get("body", "") if msg_data.get("type") == "text" else ""
+        )
         msg_id = msg_data.get("id", "")
 
         if not from_number or not msg_text:
@@ -174,24 +183,33 @@ class M06Atendimento(BaseModule):
         conv = conv_q.scalar_one_or_none()
         if not conv:
             conv = Conversation(
-                id=str(uuid4()), lead_id=lead.id, module=self.code,
-                messages=[], is_active=True,
+                id=str(uuid4()),
+                lead_id=lead.id,
+                module=self.code,
+                messages=[],
+                is_active=True,
             )
             db.add(conv)
             await db.flush()
 
         conv.messages = conv.messages or []
-        conv.messages.append({"role": "lead", "content": msg_text, "timestamp": datetime.utcnow().isoformat()})
+        conv.messages.append(
+            {"role": "lead", "content": msg_text, "timestamp": datetime.utcnow().isoformat()}
+        )
 
         # Buscar contexto na base de conhecimento
         kb_results = await kb.search(msg_text, limit=3, client_slug=client.slug)
-        knowledge_text = "\n".join(
-            f"- {r['title']}: {r['text'][:200]}" for r in kb_results
-        ) if kb_results else "(sem informações na base de conhecimento)"
+        knowledge_text = (
+            "\n".join(f"- {r['title']}: {r['text'][:200]}" for r in kb_results)
+            if kb_results
+            else "(sem informações na base de conhecimento)"
+        )
 
         # Memória
         memory = await feedback_loop.build_context(
-            module=self.code, action="atender_lead", client_slug=client.slug,
+            module=self.code,
+            action="atender_lead",
+            client_slug=client.slug,
         )
 
         # Gerar resposta
@@ -230,7 +248,9 @@ class M06Atendimento(BaseModule):
             except Exception:
                 actions.append("reply_failed")
 
-        conv.messages.append({"role": "villa", "content": clean_reply, "timestamp": datetime.utcnow().isoformat()})
+        conv.messages.append(
+            {"role": "villa", "content": clean_reply, "timestamp": datetime.utcnow().isoformat()}
+        )
 
         if should_transfer:
             conv.transferred_to_human = True
@@ -240,15 +260,24 @@ class M06Atendimento(BaseModule):
         await db.flush()
 
         await feedback_loop.record_decision(
-            module=self.code, action="atender_lead",
+            module=self.code,
+            action="atender_lead",
             input_data={"message": msg_text[:200]},
-            output_data={"reply": clean_reply[:200], "transferred": should_transfer, "kb_used": len(kb_results)},
+            output_data={
+                "reply": clean_reply[:200],
+                "transferred": should_transfer,
+                "kb_used": len(kb_results),
+            },
             client_slug=client.slug,
         )
 
         return {
             "success": True,
             "message": f"Atendimento {lead.name or from_number[-4:]}: {clean_reply[:100]}",
-            "data": {"lead_id": lead.id, "transferred": should_transfer, "kb_results_used": len(kb_results)},
+            "data": {
+                "lead_id": lead.id,
+                "transferred": should_transfer,
+                "kb_results_used": len(kb_results),
+            },
             "actions_taken": actions,
         }

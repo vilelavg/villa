@@ -34,7 +34,7 @@ async def run_daily_routine() -> dict:
     """
     Rotina diária completa do Villa.
     Executada pelo scheduler todo dia no horário configurado.
-    
+
     Returns:
         Relatório da execução com tudo que foi feito
     """
@@ -78,7 +78,9 @@ async def run_daily_routine() -> dict:
             appointments_result = await _send_appointment_reminders(db)
             report["tasks"].append({"task": "appointment_reminders", **appointments_result})
         except Exception as e:
-            report["tasks"].append({"task": "appointment_reminders", "success": False, "error": str(e)})
+            report["tasks"].append(
+                {"task": "appointment_reminders", "success": False, "error": str(e)}
+            )
 
         # ── 5. Gerar e entregar relatórios diários para clientes ──
         # Prioridade 1 pós-reunião Caio+Thaís (19/05/2026)
@@ -93,7 +95,9 @@ async def run_daily_routine() -> dict:
             pending_result = await _check_pending_evaluations(db)
             report["tasks"].append({"task": "pending_evaluations", **pending_result})
         except Exception as e:
-            report["tasks"].append({"task": "pending_evaluations", "success": False, "error": str(e)})
+            report["tasks"].append(
+                {"task": "pending_evaluations", "success": False, "error": str(e)}
+            )
 
         report["completed_at"] = datetime.utcnow().isoformat()
         tasks_ok = sum(1 for t in report["tasks"] if t.get("success", False))
@@ -114,6 +118,7 @@ async def run_daily_routine() -> dict:
 # ═══════════════════════════════════════════════════
 # SUBTAREFAS
 # ═══════════════════════════════════════════════════
+
 
 async def _collect_campaign_metrics(db: AsyncSession) -> dict:
     """
@@ -154,10 +159,7 @@ async def _check_thresholds(db: AsyncSession) -> dict:
     Verifica se alguma métrica de campanha ultrapassou thresholds.
     Gera alertas para Caio/Thaís via M12.
     """
-    result = await db.execute(
-        select(Campaign)
-        .where(Campaign.status == "active")
-    )
+    result = await db.execute(select(Campaign).where(Campaign.status == "active"))
     campaigns = result.scalars().all()
 
     alerts_created = 0
@@ -166,9 +168,7 @@ async def _check_thresholds(db: AsyncSession) -> dict:
         metrics = campaign.metrics or {}
 
         # Buscar thresholds do cliente
-        client_result = await db.execute(
-            select(Client).where(Client.id == campaign.client_id)
-        )
+        client_result = await db.execute(select(Client).where(Client.id == campaign.client_id))
         client = client_result.scalar_one_or_none()
         if not client:
             continue
@@ -255,9 +255,7 @@ async def _check_stale_leads(db: AsyncSession) -> dict:
     ]
 
     result = await db.execute(
-        select(Lead)
-        .where(Lead.status.in_(stale_statuses))
-        .where(Lead.updated_at < cutoff)
+        select(Lead).where(Lead.status.in_(stale_statuses)).where(Lead.updated_at < cutoff)
     )
     stale_leads = result.scalars().all()
 
@@ -375,17 +373,11 @@ async def _generate_and_deliver_daily_reports(db: AsyncSession) -> dict:
     """
     from modules.m02_relatorios.agent import M02Relatorios
 
-    result = await db.execute(
-        select(Client)
-        .where(Client.status == ClientStatus.ACTIVE)
-    )
+    result = await db.execute(select(Client).where(Client.status == ClientStatus.ACTIVE))
     clients = result.scalars().all()
 
     # Filtrar clientes com relatório diário habilitado
-    report_clients = [
-        c for c in clients
-        if (c.config or {}).get("daily_report_enabled", False)
-    ]
+    report_clients = [c for c in clients if (c.config or {}).get("daily_report_enabled", False)]
 
     generated = 0
     delivered = 0
@@ -484,6 +476,7 @@ async def _notify_report_ready_webhook(client: "Client", report_data: dict) -> b
     O N8N pode então fazer o envio pelo canal que a Thaís decidir.
     """
     from integrations.n8n import n8n
+
     try:
         await n8n.trigger(
             event="report_ready",
@@ -493,7 +486,7 @@ async def _notify_report_ready_webhook(client: "Client", report_data: dict) -> b
                 "report_id": report_data.get("report_id"),
                 "period": report_data.get("period"),
                 "consolidated": report_data.get("consolidated"),
-            }
+            },
         )
         return True
     except Exception:

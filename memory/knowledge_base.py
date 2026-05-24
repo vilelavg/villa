@@ -18,7 +18,6 @@ O Villa consulta essa base antes de responder perguntas como:
     "Quando foi a última reunião com o Linardi?"
 """
 
-
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,17 +29,17 @@ from memory.embeddings import EmbeddingService
 class KnowledgeBaseService:
     """
     Sistema RAG (Retrieval-Augmented Generation) do Villa.
-    
+
     Pipeline de consulta:
         1. Usuário pergunta algo
         2. Pergunta é vetorizada
         3. Busca semântica encontra chunks relevantes
         4. Chunks são injetados no prompt do Claude como contexto
         5. Claude responde usando a base de conhecimento como referência
-    
+
     Uso:
         kb = KnowledgeBaseService(db)
-        
+
         # Indexar documento
         await kb.add_document(
             title="Reunião Ottoboni — Jan/2026",
@@ -49,7 +48,7 @@ class KnowledgeBaseService:
             client_slug="ottoboni",
             source="tactiq",
         )
-        
+
         # Consultar
         answer = await kb.ask(
             "Qual foi a estratégia definida pro Ottoboni?",
@@ -76,7 +75,7 @@ class KnowledgeBaseService:
     ) -> dict:
         """
         Adiciona e indexa um documento na base de conhecimento.
-        
+
         Args:
             title: Título do documento
             content: Conteúdo textual completo
@@ -182,23 +181,21 @@ class KnowledgeBaseService:
     ) -> list[dict]:
         """
         Busca semântica na base de conhecimento.
-        
+
         Args:
             query: Pergunta ou busca em linguagem natural
             limit: Máximo de resultados
             client_slug: Filtrar por cliente
             doc_type: Filtrar por tipo de documento
             min_score: Score mínimo de similaridade
-            
+
         Returns:
             Lista de chunks relevantes ordenados por relevância
         """
         # Resolver client_id
         client_id = None
         if client_slug:
-            result = await self.db.execute(
-                select(Client.id).where(Client.slug == client_slug)
-            )
+            result = await self.db.execute(select(Client.id).where(Client.slug == client_slug))
             client_id = result.scalar_one_or_none()
 
         results = await self.embeddings.search(
@@ -221,20 +218,20 @@ class KnowledgeBaseService:
     ) -> dict:
         """
         Pergunta algo à base de conhecimento usando RAG completo.
-        
+
         Pipeline:
             1. Busca chunks relevantes via embeddings
             2. Monta contexto com os chunks encontrados
             3. Envia ao Claude com o contexto como referência
             4. Retorna resposta + fontes usadas
-        
+
         Args:
             question: Pergunta em linguagem natural
             client_slug: Filtrar contexto por cliente
             doc_type: Filtrar por tipo de documento
             system_prompt_extra: Instruções adicionais para o Claude
             max_context_chunks: Máximo de chunks no contexto
-            
+
         Returns:
             Dict com: answer, sources, chunks_used, tokens_used
         """
@@ -263,15 +260,17 @@ class KnowledgeBaseService:
         sources = []
         for i, chunk in enumerate(chunks):
             context_blocks.append(
-                f"[Fonte {i+1}: {chunk['title']} ({chunk['doc_type']}) — Relevância: {chunk['score']}]\n"
+                f"[Fonte {i + 1}: {chunk['title']} ({chunk['doc_type']}) — Relevância: {chunk['score']}]\n"
                 f"{chunk['text']}"
             )
-            sources.append({
-                "title": chunk["title"],
-                "doc_type": chunk["doc_type"],
-                "score": chunk["score"],
-                "document_id": chunk["document_id"],
-            })
+            sources.append(
+                {
+                    "title": chunk["title"],
+                    "doc_type": chunk["doc_type"],
+                    "score": chunk["score"],
+                    "document_id": chunk["document_id"],
+                }
+            )
 
         context_text = "\n\n---\n\n".join(context_blocks)
 
@@ -318,9 +317,7 @@ class KnowledgeBaseService:
         query = select(KnowledgeDocument).order_by(KnowledgeDocument.created_at.desc()).limit(limit)
 
         if client_slug:
-            result = await self.db.execute(
-                select(Client.id).where(Client.slug == client_slug)
-            )
+            result = await self.db.execute(select(Client.id).where(Client.slug == client_slug))
             client_id = result.scalar_one_or_none()
             if client_id:
                 query = query.where(KnowledgeDocument.client_id == client_id)

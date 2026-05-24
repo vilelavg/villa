@@ -14,7 +14,6 @@ pelo webhook receiver. Este arquivo define a LÓGICA de
 cada trigger — o que acontece quando o evento chega.
 """
 
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +24,7 @@ from security.audit_log import AuditService
 class TriggerService:
     """
     Processa eventos em tempo real e executa ações automáticas.
-    
+
     Uso (chamado pelo webhook receiver via orquestrador):
         triggers = TriggerService(db)
         await triggers.on_new_lead(payload)
@@ -44,7 +43,7 @@ class TriggerService:
     async def on_new_lead(self, payload: dict) -> dict:
         """
         Trigger: novo lead captado pelo InLead.
-        
+
         Ações automáticas:
             1. Identificar o cliente pelo form_id
             2. Parsear campos aleatórios do InLead
@@ -75,6 +74,7 @@ class TriggerService:
 
         # Criar lead no banco
         from uuid import uuid4
+
         lead = Lead(
             id=str(uuid4()),
             client_id=client.id,
@@ -117,7 +117,7 @@ class TriggerService:
     async def on_lead_status_changed(self, payload: dict) -> dict:
         """
         Trigger: lead mudou de etapa no Kommo.
-        
+
         Ações automáticas por etapa:
             → "Consulta Agendada": criar evento no Calendar, enviar confirmação WhatsApp
             → "Ganho": registrar valor, enviar CAPI, atualizar BI
@@ -133,9 +133,7 @@ class TriggerService:
         pipeline_id = lead_info.get("pipeline_id")
 
         # Buscar lead no banco
-        result = await self.db.execute(
-            select(Lead).where(Lead.kommo_lead_id == kommo_lead_id)
-        )
+        result = await self.db.execute(select(Lead).where(Lead.kommo_lead_id == kommo_lead_id))
         lead = result.scalar_one_or_none()
 
         actions = []
@@ -180,7 +178,7 @@ class TriggerService:
     async def on_whatsapp_message(self, payload: dict) -> dict:
         """
         Trigger: mensagem recebida via WhatsApp.
-        
+
         Ações automáticas:
             1. Identificar o lead pelo número
             2. Determinar contexto (qualificação? atendimento? suporte?)
@@ -232,7 +230,7 @@ class TriggerService:
     async def on_n8n_event(self, event_type: str, payload: dict) -> dict:
         """
         Trigger: evento de workflow N8N.
-        
+
         Eventos comuns:
             - capi_sent: CAPI event enviado com sucesso
             - report_data_ready: dados do relatório coletados
@@ -240,7 +238,10 @@ class TriggerService:
         """
         await self.audit.log(
             action=f"trigger_n8n_{event_type}",
-            details={"workflow": payload.get("workflow"), "data_keys": list(payload.get("data", {}).keys())},
+            details={
+                "workflow": payload.get("workflow"),
+                "data_keys": list(payload.get("data", {}).keys()),
+            },
         )
 
         return {

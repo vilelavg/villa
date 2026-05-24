@@ -5,7 +5,6 @@ O N8N serve como middleware de automação — o Villa
 pode acionar workflows que já estão rodando na WebXP.
 """
 
-
 import httpx
 
 from core.config import settings
@@ -14,13 +13,13 @@ from core.config import settings
 class N8NClient:
     """
     Cliente para disparar workflows N8N via webhook.
-    
+
     Workflows existentes da WebXP:
         1. InLead → CRM → WhatsApp (captação)
         2. Qualificação via Claude API (piloto)
         3. Meta CAPI a partir do Kommo
         4. Relatórios e BI (planilha mestre)
-    
+
     Uso:
         n8n = N8NClient()
         await n8n.trigger("capi_conversion", {"lead_id": 123, "value": 6000})
@@ -39,7 +38,7 @@ class N8NClient:
     ) -> dict:
         """
         Dispara um workflow N8N via webhook.
-        
+
         Args:
             workflow_name: Nome identificador do workflow
             data: Dados a enviar como payload
@@ -61,11 +60,14 @@ class N8NClient:
         value: float | None = None,
     ) -> dict:
         """Atalho para disparar o workflow de Meta CAPI."""
-        return await self.trigger("capi_conversion", {
-            "lead_id": lead_id,
-            "event_name": event_name,
-            "value": value,
-        })
+        return await self.trigger(
+            "capi_conversion",
+            {
+                "lead_id": lead_id,
+                "event_name": event_name,
+                "value": value,
+            },
+        )
 
     async def trigger_report_update(
         self,
@@ -73,10 +75,13 @@ class N8NClient:
         report_type: str = "weekly",
     ) -> dict:
         """Atalho para disparar atualização da planilha mestre de BI."""
-        return await self.trigger("report_update", {
-            "client_slug": client_slug,
-            "report_type": report_type,
-        })
+        return await self.trigger(
+            "report_update",
+            {
+                "client_slug": client_slug,
+                "report_type": report_type,
+            },
+        )
 
     async def get_workflows(self) -> list[dict]:
         """Lista workflows ativos no N8N (requer API key)."""

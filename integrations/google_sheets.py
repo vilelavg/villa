@@ -3,7 +3,6 @@ Villa — Integração Google Sheets
 Leitura e escrita em planilhas (relatórios, BI, planilha mestre).
 """
 
-
 import httpx
 
 from core.config import settings
@@ -12,7 +11,7 @@ from core.config import settings
 class GoogleSheetsClient:
     """
     Cliente para Google Sheets API via Service Account.
-    
+
     Uso:
         sheets = GoogleSheetsClient()
         data = await sheets.read("SPREADSHEET_ID", "Dados!A1:Z100")
@@ -43,7 +42,8 @@ class GoogleSheetsClient:
             "iss": creds["client_email"],
             "scope": "https://www.googleapis.com/auth/spreadsheets",
             "aud": "https://oauth2.googleapis.com/token",
-            "iat": now, "exp": now + 3600,
+            "iat": now,
+            "exp": now + 3600,
         }
         signed = jose_jwt.encode(payload, creds["private_key"], algorithm="RS256")
         response = await self._client.post(
@@ -72,11 +72,11 @@ class GoogleSheetsClient:
     ) -> list[list]:
         """
         Lê dados de uma planilha.
-        
+
         Args:
             spreadsheet_id: ID da planilha no Google Sheets
             range_notation: Ex: "Sheet1!A1:Z100" ou "Dados!A:D"
-            
+
         Returns:
             Lista de linhas (cada linha é uma lista de valores)
         """
@@ -95,7 +95,7 @@ class GoogleSheetsClient:
     ) -> dict:
         """
         Escreve dados em uma planilha.
-        
+
         Args:
             spreadsheet_id: ID da planilha
             range_notation: Ex: "Relatorio!A1"

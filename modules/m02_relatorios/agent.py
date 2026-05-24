@@ -92,14 +92,28 @@ class M02Relatorios(BaseModule):
     )
 
     KEYWORDS = [
-        "relatório", "relatorio", "report",
-        "métricas", "metricas", "metrics",
-        "performance", "desempenho",
-        "resultado", "resultados",
-        "dados", "números", "numeros",
-        "como está", "como estão", "como tá",
-        "campanha", "campanhas",
-        "semanal", "mensal", "diário", "diario",
+        "relatório",
+        "relatorio",
+        "report",
+        "métricas",
+        "metricas",
+        "metrics",
+        "performance",
+        "desempenho",
+        "resultado",
+        "resultados",
+        "dados",
+        "números",
+        "numeros",
+        "como está",
+        "como estão",
+        "como tá",
+        "campanha",
+        "campanhas",
+        "semanal",
+        "mensal",
+        "diário",
+        "diario",
     ]
 
     def __init__(self):
@@ -135,7 +149,7 @@ class M02Relatorios(BaseModule):
     ) -> dict:
         """
         Gera relatório para um cliente ou para todos.
-        
+
         Comandos aceitos:
             "Relatório semanal do Ottoboni"
             "Como estão as campanhas do Linardi?"
@@ -224,7 +238,11 @@ class M02Relatorios(BaseModule):
                 "success": False,
                 "message": "Erro ao gerar análise do relatório. Dados coletados mas análise indisponível.",
                 "actions_taken": ["data_collected", "error"],
-                "data": {"error": str(e), "client": client.slug, "raw_data": data.get("consolidated")},
+                "data": {
+                    "error": str(e),
+                    "client": client.slug,
+                    "raw_data": data.get("consolidated"),
+                },
             }
 
         # Formatar
@@ -253,7 +271,11 @@ class M02Relatorios(BaseModule):
         decision_id = await feedback_loop.record_decision(
             module=self.code,
             action="gerar_relatorio",
-            input_data={"client": client.slug, "type": report_type, "period": f"{period_start} a {period_end}"},
+            input_data={
+                "client": client.slug,
+                "type": report_type,
+                "period": f"{period_start} a {period_end}",
+            },
             output_data={"report_id": report.id, "consolidated": data.get("consolidated")},
             reasoning=memory["reasoning_context"],
             client_slug=client.slug,
@@ -275,7 +297,8 @@ class M02Relatorios(BaseModule):
                 "consolidated": data.get("consolidated"),
             },
             "actions_taken": ["data_collected", "analysis_generated", "report_saved"],
-            "tokens_used": analysis_response.get("tokens_input", 0) + analysis_response.get("tokens_output", 0),
+            "tokens_used": analysis_response.get("tokens_input", 0)
+            + analysis_response.get("tokens_output", 0),
         }
 
     async def _generate_for_all_clients(
@@ -288,9 +311,7 @@ class M02Relatorios(BaseModule):
         feedback_loop: FeedbackLoop,
     ) -> dict:
         """Gera relatórios para todos os clientes ativos (scheduler)."""
-        result = await db.execute(
-            select(Client).where(Client.status == ClientStatus.ACTIVE)
-        )
+        result = await db.execute(select(Client).where(Client.status == ClientStatus.ACTIVE))
         clients = result.scalars().all()
 
         generated = 0
@@ -331,7 +352,11 @@ class M02Relatorios(BaseModule):
     def _detect_report_type(self, message: str, context: dict) -> str:
         """Detecta tipo de relatório pelo texto ou contexto."""
         msg_lower = message.lower()
-        if context.get("event_type") == "scheduler_daily" or "diário" in msg_lower or "diario" in msg_lower:
+        if (
+            context.get("event_type") == "scheduler_daily"
+            or "diário" in msg_lower
+            or "diario" in msg_lower
+        ):
             return "daily"
         if context.get("event_type") == "scheduler_weekly" or "semanal" in msg_lower:
             return "weekly"

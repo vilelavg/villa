@@ -12,8 +12,6 @@ O threshold padrão é 7.0/10 para cada componente.
 Configurável por cliente em clients.config.thresholds.
 """
 
-
-
 from integrations.anthropic_client import AnthropicClient, claude
 from modules.m01_roteiros.prompts import (
     BODY_VALIDATION_PROMPT,
@@ -25,7 +23,7 @@ from modules.m01_roteiros.prompts import (
 class RoteiroValidator:
     """
     Executa a tripla validação de um roteiro.
-    
+
     Uso:
         validator = RoteiroValidator()
         result = await validator.validate_full(
@@ -34,7 +32,7 @@ class RoteiroValidator:
             cta="Link na bio para agendar sua avaliação gratuita",
             specialty="implantes",
         )
-        
+
         if result["all_passed"]:
             # Roteiro aprovado
         else:
@@ -52,7 +50,7 @@ class RoteiroValidator:
     ) -> dict:
         """
         Valida o gancho (primeiros 3 segundos).
-        
+
         Critérios ponderados:
             - Pattern Interrupt (peso 3)
             - Especificidade (peso 3)
@@ -104,7 +102,7 @@ class RoteiroValidator:
     ) -> dict:
         """
         Valida o corpo (persuasão).
-        
+
         Critérios ponderados:
             - Framework de persuasão (peso 3)
             - Prova e autoridade (peso 3)
@@ -157,7 +155,7 @@ class RoteiroValidator:
     ) -> dict:
         """
         Valida a CTA (chamada para ação).
-        
+
         Critérios ponderados:
             - Ação única (peso 3)
             - Baixo atrito (peso 3)
@@ -217,7 +215,7 @@ class RoteiroValidator:
         """
         Tripla validação completa.
         Executa as 3 validações e consolida resultado.
-        
+
         Returns:
             Dict com:
                 all_passed: bool — se os 3 componentes passaram
@@ -233,17 +231,11 @@ class RoteiroValidator:
         cta_result = await self.validate_cta(cta, hook, body, specialty, min_cta_score)
 
         # Consolidar
-        all_passed = (
-            hook_result["passed"]
-            and body_result["passed"]
-            and cta_result["passed"]
-        )
+        all_passed = hook_result["passed"] and body_result["passed"] and cta_result["passed"]
 
         # Média ponderada: gancho 35%, corpo 40%, CTA 25%
         overall_score = (
-            hook_result["score"] * 0.35
-            + body_result["score"] * 0.40
-            + cta_result["score"] * 0.25
+            hook_result["score"] * 0.35 + body_result["score"] * 0.40 + cta_result["score"] * 0.25
         )
 
         # Resumo de feedback
@@ -251,9 +243,7 @@ class RoteiroValidator:
         for r in [hook_result, body_result, cta_result]:
             component = r["component"].upper()
             status = "✅" if r["passed"] else "❌"
-            feedback_parts.append(
-                f"{status} {component} ({r['score']:.1f}/10): {r['feedback']}"
-            )
+            feedback_parts.append(f"{status} {component} ({r['score']:.1f}/10): {r['feedback']}")
 
         total_tokens = sum(r.get("tokens_used", 0) for r in [hook_result, body_result, cta_result])
         total_cost = sum(r.get("cost_usd", 0) for r in [hook_result, body_result, cta_result])

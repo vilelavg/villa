@@ -15,8 +15,6 @@ Classificação:
     0-39:   Desqualificado
 """
 
-
-
 from core.models import Client, Lead, LeadStatus
 from integrations.anthropic_client import claude
 from modules.m03_qualificacao.prompts import SCORING_PROMPT
@@ -30,7 +28,7 @@ SCORE_NURTURING = 40
 class LeadScorer:
     """
     Motor de lead scoring do Villa.
-    
+
     Uso:
         scorer = LeadScorer()
         result = await scorer.score_lead(
@@ -38,7 +36,7 @@ class LeadScorer:
             lead=lead,
             conversation_history=[...],
         )
-        
+
         if result["qualification"] == "qualified":
             # Transferir para humano
         elif result["qualification"] == "disqualified":
@@ -92,9 +90,15 @@ class LeadScorer:
         total = result.get("total_score", 0)
 
         # Aplicar thresholds customizados do cliente se existirem
-        thresh_qualified = client_config.get("thresholds", {}).get("score_qualified", SCORE_QUALIFIED)
-        thresh_qualifying = client_config.get("thresholds", {}).get("score_qualifying", SCORE_QUALIFYING)
-        thresh_nurturing = client_config.get("thresholds", {}).get("score_nurturing", SCORE_NURTURING)
+        thresh_qualified = client_config.get("thresholds", {}).get(
+            "score_qualified", SCORE_QUALIFIED
+        )
+        thresh_qualifying = client_config.get("thresholds", {}).get(
+            "score_qualifying", SCORE_QUALIFYING
+        )
+        thresh_nurturing = client_config.get("thresholds", {}).get(
+            "score_nurturing", SCORE_NURTURING
+        )
 
         # Classificar
         if total >= thresh_qualified:

@@ -18,27 +18,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.models import KnowledgeDocument, KnowledgeEmbedding
 
 # ── Configurações ──
-CHUNK_SIZE = 500          # Caracteres por chunk
-CHUNK_OVERLAP = 75        # Sobreposição entre chunks
+CHUNK_SIZE = 500  # Caracteres por chunk
+CHUNK_OVERLAP = 75  # Sobreposição entre chunks
 EMBEDDING_DIMENSION = 1536  # Dimensão do vetor (depende do modelo)
 
 
 class EmbeddingService:
     """
     Gerencia embeddings vetoriais para busca semântica.
-    
+
     Pipeline:
         1. Documento é dividido em chunks
         2. Cada chunk é vetorizado (embedding)
         3. Embeddings são armazenados no pgvector
         4. Busca: query é vetorizada → busca por similaridade coseno
-    
+
     Uso:
         emb = EmbeddingService(db)
-        
+
         # Indexar um documento
         await emb.index_document(doc_id, "Conteúdo do documento...")
-        
+
         # Buscar por similaridade
         results = await emb.search("como tratar implante que quebrou?", limit=5)
     """
@@ -59,20 +59,19 @@ class EmbeddingService:
     ) -> int:
         """
         Divide um documento em chunks e gera embeddings para cada um.
-        
+
         Args:
             document_id: ID do KnowledgeDocument
             content: Texto completo do documento
             chunk_size: Tamanho de cada chunk em caracteres
             chunk_overlap: Sobreposição entre chunks
-            
+
         Returns:
             Número de chunks indexados
         """
         # Limpar embeddings antigos deste documento
         await self.db.execute(
-            delete(KnowledgeEmbedding)
-            .where(KnowledgeEmbedding.document_id == document_id)
+            delete(KnowledgeEmbedding).where(KnowledgeEmbedding.document_id == document_id)
         )
 
         # Dividir em chunks
@@ -103,9 +102,7 @@ class EmbeddingService:
 
             # Atualizar o embedding via SQL direto (pgvector requer formato especial)
             await self.db.execute(
-                text(
-                    "UPDATE knowledge_embeddings SET embedding = :vec WHERE id = :id"
-                ).bindparams(
+                text("UPDATE knowledge_embeddings SET embedding = :vec WHERE id = :id").bindparams(
                     vec=str(embedding_vector),
                     id=entry.id,
                 )
@@ -126,7 +123,7 @@ class EmbeddingService:
         """
         Cria um documento E indexa em uma operação.
         Atalho para uso rápido.
-        
+
         Returns:
             Dict com document_id e chunks_count
         """
@@ -134,9 +131,7 @@ class EmbeddingService:
 
         client_id = None
         if client_slug:
-            result = await self.db.execute(
-                select(Client.id).where(Client.slug == client_slug)
-            )
+            result = await self.db.execute(select(Client.id).where(Client.slug == client_slug))
             client_id = result.scalar_one_or_none()
 
         doc = KnowledgeDocument(
@@ -173,14 +168,14 @@ class EmbeddingService:
     ) -> list[dict]:
         """
         Busca semântica por similaridade de coseno.
-        
+
         Args:
             query: Texto de busca em linguagem natural
             limit: Máximo de resultados
             client_id: Filtrar por cliente
             doc_type: Filtrar por tipo de documento
             similarity_threshold: Mínimo de similaridade (0-1)
-            
+
         Returns:
             Lista de chunks relevantes com score de similaridade
         """
@@ -259,7 +254,7 @@ class EmbeddingService:
     ) -> list[str]:
         """
         Divide texto em chunks com sobreposição.
-        
+
         Tenta quebrar em fronteiras naturais (parágrafos, frases)
         ao invés de cortar no meio de palavras.
         """
@@ -293,11 +288,13 @@ class EmbeddingService:
                     # Começar novo chunk com overlap
                     if chunks and overlap > 0:
                         last_chunk = chunks[-1]
-                        overlap_text = last_chunk[-overlap:] if len(last_chunk) > overlap else last_chunk
+                        overlap_text = (
+                            last_chunk[-overlap:] if len(last_chunk) > overlap else last_chunk
+                        )
                         # Encontrar início de palavra
                         space_idx = overlap_text.find(" ")
                         if space_idx > 0:
-                            overlap_text = overlap_text[space_idx + 1:]
+                            overlap_text = overlap_text[space_idx + 1 :]
                         current_chunk = f"{overlap_text}\n\n{para}".strip()
                     else:
                         current_chunk = para
@@ -316,7 +313,8 @@ class EmbeddingService:
     ) -> list[str]:
         """Divide texto grande por frases quando parágrafos são maiores que chunk_size."""
         import re
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+
+        sentences = re.split(r"(?<=[.!?])\s+", text)
 
         chunks = []
         current = ""
@@ -341,10 +339,10 @@ class EmbeddingService:
     async def _generate_embeddings(self, texts: list[str]) -> list[list[float]]:
         """
         Gera embeddings para uma lista de textos.
-        
+
         Estratégia: usa o Claude para gerar representações semânticas
         que são depois convertidas em vetores numéricos.
-        
+
         Nota: Em produção, considerar usar um modelo de embeddings
         dedicado (como Voyage AI ou OpenAI text-embedding-3-small)
         para melhor custo-benefício. Por ora, usamos uma abordagem
@@ -363,11 +361,11 @@ class EmbeddingService:
     def _text_to_vector(self, text: str, dimensions: int = EMBEDDING_DIMENSION) -> list[float]:
         """
         Converte texto em vetor numérico.
-        
+
         Implementação inicial: hash-based embedding.
         TODO: Substituir por modelo de embeddings real (Voyage AI, OpenAI, etc.)
         quando estiver em produção para qualidade semântica real.
-        
+
         A estrutura do código já suporta a troca — basta alterar
         _generate_embeddings para chamar a API de embeddings.
         """
@@ -398,20 +396,15 @@ class EmbeddingService:
     async def delete_document_embeddings(self, document_id: str) -> int:
         """Remove todos os embeddings de um documento."""
         result = await self.db.execute(
-            delete(KnowledgeEmbedding)
-            .where(KnowledgeEmbedding.document_id == document_id)
+            delete(KnowledgeEmbedding).where(KnowledgeEmbedding.document_id == document_id)
         )
         await self.db.flush()
         return result.rowcount or 0
 
     async def get_stats(self) -> dict:
         """Estatísticas do índice de embeddings."""
-        docs_result = await self.db.execute(
-            text("SELECT COUNT(*) FROM knowledge_documents")
-        )
-        emb_result = await self.db.execute(
-            text("SELECT COUNT(*) FROM knowledge_embeddings")
-        )
+        docs_result = await self.db.execute(text("SELECT COUNT(*) FROM knowledge_documents"))
+        emb_result = await self.db.execute(text("SELECT COUNT(*) FROM knowledge_embeddings"))
 
         return {
             "total_documents": docs_result.scalar() or 0,

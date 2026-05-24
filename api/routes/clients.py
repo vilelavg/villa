@@ -27,25 +27,41 @@ router = APIRouter()
 # SCHEMAS
 # ═══════════════════════════════════════════════════════════════
 
+
 class ClientCreate(BaseModel):
     """Payload para criação de cliente."""
+
     name: str = Field(..., min_length=2, max_length=200, description="Nome do cliente")
-    slug: str = Field(..., min_length=2, max_length=100, description="Identificador único (ex: webxp, ottoboni)")
-    specialty: str | None = Field(None, max_length=200, description="Especialidade (ex: implantes, marketing odontologico)")
-    client_type: str | None = Field(None, max_length=50, description="professor | clinica | autonomo | agencia")
+    slug: str = Field(
+        ..., min_length=2, max_length=100, description="Identificador único (ex: webxp, ottoboni)"
+    )
+    specialty: str | None = Field(
+        None, max_length=200, description="Especialidade (ex: implantes, marketing odontologico)"
+    )
+    client_type: str | None = Field(
+        None, max_length=50, description="professor | clinica | autonomo | agencia"
+    )
     contact_name: str | None = Field(None, max_length=200, description="Nome do contato principal")
     contact_phone: str | None = Field(None, max_length=20, description="Telefone do contato")
     contact_email: str | None = Field(None, max_length=255, description="Email do contato")
 
     # IDs externos (opcionais — preenchidos conforme integrações ficam ativas)
     kommo_pipeline_id: int | None = Field(None, description="ID do pipeline no Kommo CRM")
-    meta_ad_account_id: str | None = Field(None, max_length=50, description="ID da conta de anúncios no Meta")
+    meta_ad_account_id: str | None = Field(
+        None, max_length=50, description="ID da conta de anúncios no Meta"
+    )
     google_ads_id: str | None = Field(None, max_length=50, description="Customer ID Google Ads")
-    inlead_form_id: str | None = Field(None, max_length=100, description="ID do formulário no InLead")
-    whatsapp_number: str | None = Field(None, max_length=20, description="Número WhatsApp do cliente")
+    inlead_form_id: str | None = Field(
+        None, max_length=100, description="ID do formulário no InLead"
+    )
+    whatsapp_number: str | None = Field(
+        None, max_length=20, description="Número WhatsApp do cliente"
+    )
 
     # Configurações
-    config: dict | None = Field(default_factory=dict, description="Configurações específicas (thresholds, tom de voz)")
+    config: dict | None = Field(
+        default_factory=dict, description="Configurações específicas (thresholds, tom de voz)"
+    )
     contract_value: float | None = Field(None, description="Valor mensal do contrato")
     contract_start: date | None = Field(None, description="Data de início do contrato")
 
@@ -54,14 +70,16 @@ class ClientCreate(BaseModel):
     def validate_slug(cls, v: str) -> str:
         """Slug deve ser lowercase, sem espaços, só letras/números/hífens."""
         import re
+
         slug = v.lower().strip()
-        if not re.match(r'^[a-z0-9-]+$', slug):
+        if not re.match(r"^[a-z0-9-]+$", slug):
             raise ValueError("Slug deve conter apenas letras minúsculas, números e hífens")
         return slug
 
 
 class ClientUpdate(BaseModel):
     """Payload para atualização parcial de cliente."""
+
     name: str | None = Field(None, min_length=2, max_length=200)
     specialty: str | None = Field(None, max_length=200)
     client_type: str | None = Field(None, max_length=50)
@@ -108,6 +126,7 @@ def _client_to_dict(client: Client) -> dict:
 # ROTAS
 # ═══════════════════════════════════════════════════════════════
 
+
 @router.post("", status_code=201)
 async def create_client(
     payload: ClientCreate,
@@ -129,13 +148,10 @@ async def create_client(
         }
     """
     # Verificar slug único
-    existing = await db.execute(
-        select(Client).where(Client.slug == payload.slug)
-    )
+    existing = await db.execute(select(Client).where(Client.slug == payload.slug))
     if existing.scalar_one_or_none():
         raise HTTPException(
-            status_code=409,
-            detail=f"Já existe um cliente com slug '{payload.slug}'"
+            status_code=409, detail=f"Já existe um cliente com slug '{payload.slug}'"
         )
 
     # Criar cliente
@@ -220,9 +236,7 @@ async def get_client(
     Exemplo:
         GET /clients/webxp
     """
-    result = await db.execute(
-        select(Client).where(Client.slug == slug)
-    )
+    result = await db.execute(select(Client).where(Client.slug == slug))
     client = result.scalar_one_or_none()
 
     if not client:
@@ -248,9 +262,7 @@ async def update_client(
         PATCH /clients/webxp
         {"kommo_pipeline_id": 12345, "contact_email": "caio@webxp.com.br"}
     """
-    result = await db.execute(
-        select(Client).where(Client.slug == slug)
-    )
+    result = await db.execute(select(Client).where(Client.slug == slug))
     client = result.scalar_one_or_none()
 
     if not client:

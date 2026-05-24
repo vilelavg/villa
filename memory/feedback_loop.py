@@ -15,7 +15,6 @@ Quanto mais o Villa opera, mais dados de resultado e feedback acumula,
 e mais precisas ficam suas decisões futuras.
 """
 
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import ModuleCode
@@ -27,11 +26,11 @@ from memory.knowledge_base import KnowledgeBaseService
 class FeedbackLoop:
     """
     Motor de aprendizado do Villa.
-    
+
     Uso dentro de um módulo:
-    
+
         loop = FeedbackLoop(db)
-        
+
         # Antes de gerar um roteiro, consultar memória
         memory = await loop.build_context(
             module=ModuleCode.M01_ROTEIROS,
@@ -39,15 +38,15 @@ class FeedbackLoop:
             client_slug="ottoboni",
             current_input={"tema": "implantes", "formato": "reels"},
         )
-        
+
         # memory["prompt_injection"] contém o bloco de texto para injetar
         # no prompt do Claude — ele vai "lembrar" do que funcionou antes
-        
+
         response = await claude.ask(
             message=briefing,
             system=f"{base_system_prompt}\\n\\n{memory['prompt_injection']}",
         )
-        
+
         # Registrar a decisão
         decision_id = await loop.record_decision(
             module=ModuleCode.M01_ROTEIROS,
@@ -61,7 +60,7 @@ class FeedbackLoop:
             model_used=response["model"],
             cost_usd=response["cost_usd"],
         )
-        
+
         # Depois, quando souber o resultado:
         await loop.evaluate(decision_id, "success", {"ctr": 2.3, "approved": True})
     """
@@ -87,13 +86,13 @@ class FeedbackLoop:
     ) -> dict:
         """
         Constrói o contexto de memória para injetar no prompt do Claude.
-        
+
         Busca em 4 fontes:
             1. Decisões passadas do mesmo módulo/ação/cliente com feedback
             2. Decisões passadas do mesmo módulo/ação/cliente com outcome
             3. Insights de outros clientes (transferência de aprendizado)
             4. Base de conhecimento (RAG) — se habilitado
-        
+
         Args:
             module: Módulo que vai decidir
             action: Tipo de ação
@@ -103,7 +102,7 @@ class FeedbackLoop:
             include_knowledge: Buscar na base de conhecimento (RAG)
             knowledge_query: Query para busca semântica
             max_examples: Máximo de exemplos passados para incluir
-            
+
         Returns:
             Dict com:
                 prompt_injection: bloco de texto para injetar no system prompt
@@ -125,7 +124,9 @@ class FeedbackLoop:
         )
 
         if feedback_decisions:
-            block = self._format_feedback_block(feedback_decisions, "APRENDIZADOS COM FEEDBACK HUMANO")
+            block = self._format_feedback_block(
+                feedback_decisions, "APRENDIZADOS COM FEEDBACK HUMANO"
+            )
             sections.append(block)
             sources.append("feedback_humano")
             total_examples += len(feedback_decisions)
@@ -146,7 +147,9 @@ class FeedbackLoop:
             outcome_decisions = [d for d in outcome_decisions if d["id"] not in seen_ids]
 
             if outcome_decisions:
-                block = self._format_outcome_block(outcome_decisions, "DECISÕES BEM-SUCEDIDAS ANTERIORES")
+                block = self._format_outcome_block(
+                    outcome_decisions, "DECISÕES BEM-SUCEDIDAS ANTERIORES"
+                )
                 sections.append(block)
                 sources.append("outcomes_positivos")
                 total_examples += len(outcome_decisions)
@@ -212,16 +215,13 @@ class FeedbackLoop:
                 "\n\n## MEMÓRIA OPERACIONAL\n"
                 "Use as informações abaixo como referência para sua decisão. "
                 "Priorize padrões confirmados por feedback humano. "
-                "Evite repetir erros documentados.\n\n"
-                + "\n\n".join(sections)
+                "Evite repetir erros documentados.\n\n" + "\n\n".join(sections)
             )
         else:
             prompt_injection = ""
 
         # ── Resumo do raciocínio ──
-        reasoning_context = (
-            f"Consultei {total_examples} decisões passadas de {', '.join(sources) or 'nenhuma fonte'}. "
-        )
+        reasoning_context = f"Consultei {total_examples} decisões passadas de {', '.join(sources) or 'nenhuma fonte'}. "
         if feedback_decisions:
             reasoning_context += f"{len(feedback_decisions)} com feedback humano. "
         if failed_decisions:
@@ -271,7 +271,7 @@ class FeedbackLoop:
         """
         O Villa auto-avalia uma decisão comparando com padrões passados.
         Não substitui feedback humano, mas dá uma primeira estimativa.
-        
+
         Usado quando não tem humano disponível para avaliar imediatamente.
         """
         # Buscar padrões de sucesso
@@ -302,7 +302,7 @@ class FeedbackLoop:
             f"NOVA DECISÃO:\n"
             f"Input: {str(input_data)[:500]}\n"
             f"Output: {str(output_data)[:500]}\n\n"
-            f"Responda em JSON: {{\"score\": 0-10, \"confidence\": 0-1, \"reasoning\": \"...\", \"suggestions\": [\"...\"]}}"
+            f'Responda em JSON: {{"score": 0-10, "confidence": 0-1, "reasoning": "...", "suggestions": ["..."]}}'
         )
 
         result = await claude.extract_json(
@@ -378,18 +378,22 @@ class FeedbackLoop:
         if patterns.get("feedback_themes"):
             lines.append("\nFeedbacks recebidos:")
             for fb in patterns["feedback_themes"][:5]:
-                lines.append(f"- \"{fb[:150]}\"")
+                lines.append(f'- "{fb[:150]}"')
         succ = len(patterns.get("successful_patterns", []))
         fail = len(patterns.get("failed_patterns", []))
         total = patterns.get("total_evaluated", 0)
         if total > 0:
-            lines.append(f"\nHistórico: {succ} sucessos, {fail} falhas de {total} avaliados ({round(succ/total*100)}% taxa de sucesso)")
+            lines.append(
+                f"\nHistórico: {succ} sucessos, {fail} falhas de {total} avaliados ({round(succ / total * 100)}% taxa de sucesso)"
+            )
         return "\n".join(lines)
 
     def _format_knowledge_block(self, results: list[dict]) -> str:
         """Formata resultados da base de conhecimento (RAG)."""
         lines = ["### INFORMAÇÕES DA BASE DE CONHECIMENTO"]
         for r in results:
-            lines.append(f"\n**{r.get('title', 'Documento')}** (relevância: {r.get('score', '?')}):")
+            lines.append(
+                f"\n**{r.get('title', 'Documento')}** (relevância: {r.get('score', '?')}):"
+            )
             lines.append(f"{r.get('text', '')[:400]}")
         return "\n".join(lines)

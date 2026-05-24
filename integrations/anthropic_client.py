@@ -15,20 +15,20 @@ from core.config import settings
 class AnthropicClient:
     """
     Wrapper async para a API do Claude.
-    
+
     Uso:
         client = AnthropicClient()
-        
+
         # Chamada simples
         response = await client.ask("Analise esta campanha: ...")
-        
+
         # Com system prompt e modelo específico
         response = await client.ask(
             message="Gera um roteiro para implantes",
             system="Você é o Villa, agente da WebXP...",
             model="primary",
         )
-        
+
         # Streaming
         async for chunk in client.stream("Explique o relatório"):
             print(chunk, end="")
@@ -36,8 +36,8 @@ class AnthropicClient:
 
     def __init__(self):
         self._client = AsyncAnthropic(api_key=settings.anthropic_api_key)
-        self.model_primary = settings.anthropic_model_primary   # Sonnet 4
-        self.model_fast = settings.anthropic_model_fast         # Haiku
+        self.model_primary = settings.anthropic_model_primary  # Sonnet 4
+        self.model_fast = settings.anthropic_model_fast  # Haiku
 
     def _get_model(self, model: str = "primary") -> str:
         """Resolve nome do modelo."""
@@ -58,7 +58,7 @@ class AnthropicClient:
     ) -> dict:
         """
         Envia uma mensagem ao Claude e retorna a resposta completa.
-        
+
         Args:
             message: Mensagem do usuário
             system: System prompt (personalidade do Villa)
@@ -66,7 +66,7 @@ class AnthropicClient:
             max_tokens: Limite de tokens na resposta
             temperature: Criatividade (0.0 = preciso, 1.0 = criativo)
             conversation: Histórico de mensagens [{role, content}]
-            
+
         Returns:
             dict com: text, model, tokens_input, tokens_output, cost_usd, duration_ms
         """
@@ -127,7 +127,7 @@ class AnthropicClient:
     ) -> AsyncGenerator[str, None]:
         """
         Streaming de resposta do Claude. Retorna chunks de texto.
-        
+
         Uso:
             async for chunk in client.stream("Gera roteiro"):
                 print(chunk, end="")
@@ -162,7 +162,7 @@ class AnthropicClient:
         """
         Classificação rápida via Haiku.
         Recebe texto e lista de categorias, retorna a melhor categoria.
-        
+
         Uso:
             result = await client.classify(
                 text="Quero agendar uma consulta",
@@ -173,7 +173,7 @@ class AnthropicClient:
         categories_str = ", ".join(categories)
         prompt = (
             f"Classifique o seguinte texto em UMA das categorias: {categories_str}\n\n"
-            f"Texto: \"{text}\"\n\n"
+            f'Texto: "{text}"\n\n'
             f"Responda APENAS com o nome da categoria, sem explicação."
         )
 
@@ -202,7 +202,7 @@ class AnthropicClient:
         """
         Pede ao Claude para retornar JSON estruturado.
         Faz parse automático da resposta.
-        
+
         Uso:
             data = await client.extract_json(
                 message="Analise este lead e retorne score, motivo e próxima ação",
@@ -212,7 +212,9 @@ class AnthropicClient:
         import json
 
         if not system:
-            system = "Retorne APENAS um JSON válido, sem markdown, sem blocos de código, sem explicação."
+            system = (
+                "Retorne APENAS um JSON válido, sem markdown, sem blocos de código, sem explicação."
+            )
 
         response = await self.ask(
             message=message,

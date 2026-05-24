@@ -21,11 +21,11 @@ from security.audit_log import AuditService
 
 # Períodos de retenção em dias
 RETENTION_DAYS = {
-    "leads_not_converted": 365,         # 12 meses
-    "conversations_closed": 180,        # 6 meses
-    "transcriptions": 180,              # 6 meses
-    "campaign_data": 730,               # 24 meses
-    "audit_logs": 1095,                 # 36 meses — NÃO deletar antes
+    "leads_not_converted": 365,  # 12 meses
+    "conversations_closed": 180,  # 6 meses
+    "transcriptions": 180,  # 6 meses
+    "campaign_data": 730,  # 24 meses
+    "audit_logs": 1095,  # 36 meses — NÃO deletar antes
 }
 
 
@@ -33,7 +33,7 @@ async def enforce_retention() -> dict:
     """
     Aplica políticas de retenção de dados.
     Retorna relatório do que foi limpo.
-    
+
     Chamado pelo scheduler semanalmente.
     """
     report = {}

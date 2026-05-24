@@ -29,7 +29,7 @@ async def list_reports(
 ):
     """
     Lista relatórios com filtros opcionais.
-    
+
     Exemplos:
         GET /reports?client_slug=ottoboni&report_type=weekly
         GET /reports?start_date=2026-05-01&end_date=2026-05-15
@@ -39,9 +39,7 @@ async def list_reports(
 
     # Filtrar por cliente
     if client_slug:
-        client_result = await db.execute(
-            select(Client).where(Client.slug == client_slug)
-        )
+        client_result = await db.execute(select(Client).where(Client.slug == client_slug))
         client = client_result.scalar_one_or_none()
         if not client:
             raise HTTPException(status_code=404, detail=f"Cliente '{client_slug}' não encontrado")
@@ -94,9 +92,7 @@ async def get_report(
     """
     Retorna um relatório específico com todos os dados.
     """
-    result = await db.execute(
-        select(Report).where(Report.id == report_id)
-    )
+    result = await db.execute(select(Report).where(Report.id == report_id))
     report = result.scalar_one_or_none()
 
     if not report:
@@ -129,12 +125,10 @@ async def send_report(
     """
     Envia um relatório para o cliente.
     Requer role admin ou operator.
-    
+
     TODO: Integrar com M2 para envio real via WhatsApp/email/Drive.
     """
-    result = await db.execute(
-        select(Report).where(Report.id == report_id)
-    )
+    result = await db.execute(select(Report).where(Report.id == report_id))
     report = result.scalar_one_or_none()
 
     if not report:

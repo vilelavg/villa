@@ -18,7 +18,7 @@ class AuditService:
     """
     Registra toda ação do Villa no banco de dados.
     Log imutável — nunca é editado ou deletado.
-    
+
     Uso:
         audit = AuditService(db_session)
         await audit.log(
@@ -49,7 +49,7 @@ class AuditService:
     ) -> AuditLog:
         """
         Registra uma ação no audit log.
-        
+
         Args:
             action: Descrição da ação (ex: "gerar_roteiro", "mover_card_kommo")
             module: Módulo que executou a ação
@@ -62,7 +62,7 @@ class AuditService:
             success: Se a ação foi bem-sucedida
             error_message: Mensagem de erro (se falhou)
             required_confirmation: Se essa ação exigiu confirmação humana
-            
+
         Returns:
             O registro de audit log criado
         """
@@ -116,14 +116,12 @@ class AuditService:
     ) -> AuditLog | None:
         """
         Registra a confirmação humana de uma ação de alto risco.
-        
+
         Args:
             audit_id: ID do registro no audit log
             confirmed_by: ID do usuário que confirmou
         """
-        result = await self.db.execute(
-            select(AuditLog).where(AuditLog.id == audit_id)
-        )
+        result = await self.db.execute(select(AuditLog).where(AuditLog.id == audit_id))
         entry = result.scalar_one_or_none()
 
         if entry and entry.required_confirmation:
@@ -171,12 +169,11 @@ class AuditService:
     ) -> int:
         """Conta erros nas últimas N horas. Útil para monitoramento."""
         from datetime import timedelta
+
         cutoff = datetime.utcnow() - timedelta(hours=hours)
 
         query = (
-            select(AuditLog)
-            .where(AuditLog.success == False)
-            .where(AuditLog.created_at >= cutoff)
+            select(AuditLog).where(AuditLog.success == False).where(AuditLog.created_at >= cutoff)
         )
         if module:
             query = query.where(AuditLog.module == module)

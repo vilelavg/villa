@@ -35,6 +35,7 @@ pytestmark = pytest.mark.unit
 
 # ── Factories ────────────────────────────────────────────────────────────────
 
+
 def make_client(slug: str = "clinica-demo") -> MagicMock:
     client = MagicMock()
     client.id = "client-uuid-123"
@@ -86,11 +87,20 @@ def make_analysis(
         "summary": "Performance estável. CPL dentro do esperado, CTR acima da média.",
         "anomalies": anomalies or [],
         "pareto": {"top_campaign": "Implante | Awareness", "percentage_of_results": 78},
-        "recommendations": recommendations or [
-            {"action": "Renovar criativo da campanha Implante v2", "priority": 1,
-             "expected_impact": "CTR +15%", "reasoning": "Frequência acima de 3x"},
-            {"action": "Expandir público lookalike 3%", "priority": 2,
-             "expected_impact": "Reduzir CPL ~10%", "reasoning": "Público atual saturado"},
+        "recommendations": recommendations
+        or [
+            {
+                "action": "Renovar criativo da campanha Implante v2",
+                "priority": 1,
+                "expected_impact": "CTR +15%",
+                "reasoning": "Frequência acima de 3x",
+            },
+            {
+                "action": "Expandir público lookalike 3%",
+                "priority": 2,
+                "expected_impact": "Reduzir CPL ~10%",
+                "reasoning": "Público atual saturado",
+            },
         ],
         "trends": {"cpl": cpl_trend, "ctr": "up", "leads": "stable"},
     }
@@ -104,6 +114,7 @@ FEEDBACK_CONTEXT = {
 
 
 # ── Fixture base ──────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def setup_m04():
@@ -124,24 +135,27 @@ def setup_m04():
 
 # ── Testes de execução básica ─────────────────────────────────────────────────
 
-class TestAnalisarCampanhas:
 
+class TestAnalisarCampanhas:
     async def test_retorna_success_true_com_dados_validos(self, setup_m04):
         client, db, patches = setup_m04
 
-        with patches["feedback_loop"], \
-             patches["meta_ads"] as mock_meta, \
-             patches["google_ads"] as mock_google:
-
+        with (
+            patches["feedback_loop"],
+            patches["meta_ads"] as mock_meta,
+            patches["google_ads"] as mock_google,
+        ):
             mock_meta.get_campaign_insights = AsyncMock(return_value=[])
             mock_google.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis()}
 
@@ -161,11 +175,13 @@ class TestAnalisarCampanhas:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis()}
 
@@ -186,11 +202,13 @@ class TestAnalisarCampanhas:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis(health_score=85)}
 
@@ -207,8 +225,8 @@ class TestAnalisarCampanhas:
 
 # ── Testes de health_score ────────────────────────────────────────────────────
 
-class TestHealthScore:
 
+class TestHealthScore:
     async def test_health_score_presente_no_resultado(self, setup_m04):
         client, db, patches = setup_m04
 
@@ -217,11 +235,13 @@ class TestHealthScore:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis(health_score=72)}
 
@@ -243,11 +263,13 @@ class TestHealthScore:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis(health_score=55)}
 
@@ -262,8 +284,8 @@ class TestHealthScore:
 
 # ── Testes de anomalias ───────────────────────────────────────────────────────
 
-class TestAnomalias:
 
+class TestAnomalias:
     async def test_anomalias_retornadas_quando_cpl_alto(self, setup_m04):
         client, db, patches = setup_m04
 
@@ -276,13 +298,17 @@ class TestAnomalias:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
-                mock_json.return_value = {"data": make_analysis(health_score=35, anomalies=anomalias)}
+                mock_json.return_value = {
+                    "data": make_analysis(health_score=35, anomalies=anomalias)
+                }
 
                 result = await module.execute(
                     message="Analisa campanhas",
@@ -302,11 +328,13 @@ class TestAnomalias:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis(anomalies=[])}
 
@@ -321,12 +349,22 @@ class TestAnomalias:
 
 # ── Testes de recomendações ───────────────────────────────────────────────────
 
-class TestRecomendacoes:
 
+class TestRecomendacoes:
     async def test_recomendacoes_presentes_e_priorizadas(self, setup_m04):
         recs = [
-            {"action": "Pausar adset X", "priority": 1, "expected_impact": "CPL -20%", "reasoning": "Frequência alta"},
-            {"action": "Testar gancho com número", "priority": 2, "expected_impact": "CTR +10%", "reasoning": "Copy genérico"},
+            {
+                "action": "Pausar adset X",
+                "priority": 1,
+                "expected_impact": "CPL -20%",
+                "reasoning": "Frequência alta",
+            },
+            {
+                "action": "Testar gancho com número",
+                "priority": 2,
+                "expected_impact": "CTR +10%",
+                "reasoning": "Copy genérico",
+            },
         ]
 
         client, db, patches = setup_m04
@@ -336,11 +374,13 @@ class TestRecomendacoes:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis(recommendations=recs)}
 
@@ -358,6 +398,7 @@ class TestRecomendacoes:
 
 # ── Testes de degradação graciosa (integrações) ───────────────────────────────
 
+
 class TestDegradacaoGraciosa:
     """
     M04 já tem try/except individuais para Meta e Google.
@@ -372,11 +413,13 @@ class TestDegradacaoGraciosa:
             g.get_metrics = AsyncMock(return_value={})
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis()}
 
@@ -399,11 +442,13 @@ class TestDegradacaoGraciosa:
             g.get_metrics = AsyncMock(side_effect=Exception("Google Ads API timeout"))
 
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response("{}")
                 mock_json.return_value = {"data": make_analysis()}
 
@@ -418,13 +463,14 @@ class TestDegradacaoGraciosa:
 
 # ── Testes de resolução de cliente ────────────────────────────────────────────
 
-class TestResolucaoCliente:
 
+class TestResolucaoCliente:
     async def test_cliente_nao_encontrado_retorna_success_false(self):
         db = make_db(client=None)
 
         with patch("modules.m04_campanhas.agent.FeedbackLoop"):
             from modules.m04_campanhas.agent import M04Campanhas
+
             module = M04Campanhas()
             result = await module.execute(
                 message="Analisa campanhas",
@@ -437,28 +483,32 @@ class TestResolucaoCliente:
 
 # ── Testes de can_handle ──────────────────────────────────────────────────────
 
-class TestCanHandle:
 
+class TestCanHandle:
     async def test_alta_confianca_para_multiplas_keywords(self):
         from modules.m04_campanhas.agent import M04Campanhas
+
         module = M04Campanhas()
         score = await module.can_handle("Quero analisar a performance das campanhas de Meta Ads")
         assert score >= 0.75
 
     async def test_confianca_maxima_para_evento_scheduler(self):
         from modules.m04_campanhas.agent import M04Campanhas
+
         module = M04Campanhas()
         score = await module.can_handle("", context={"event_type": "campanhas_diarias"})
         assert score >= 0.9
 
     async def test_confianca_zero_para_assunto_nao_relacionado(self):
         from modules.m04_campanhas.agent import M04Campanhas
+
         module = M04Campanhas()
         score = await module.can_handle("Gera um roteiro de implante para reels")
         assert score == 0.0
 
     async def test_confianca_media_para_uma_keyword(self):
         from modules.m04_campanhas.agent import M04Campanhas
+
         module = M04Campanhas()
         score = await module.can_handle("Quero ver o CPL")
         assert 0.0 < score < 0.9

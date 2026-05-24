@@ -8,7 +8,6 @@ Nota: Smooth Dentistry é operação independente da WebXP
 com 6 sócios. Este módulo depende da aprovação da governança.
 """
 
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import ModuleCode, User
@@ -54,18 +53,31 @@ class M10Smooth(BaseModule):
     async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
-        if matches >= 2: return 0.85
-        if matches >= 1: return 0.6
+        if matches >= 2:
+            return 0.85
+        if matches >= 1:
+            return 0.6
         return 0.0
 
-    async def execute(self, message: str, db: AsyncSession, user: User | None = None, client_slug: str | None = None, context: dict | None = None) -> dict:
+    async def execute(
+        self,
+        message: str,
+        db: AsyncSession,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
+    ) -> dict:
         feedback_loop = FeedbackLoop(db)
         kb = KnowledgeBaseService(db)
         context = context or {}
 
         # Buscar na base de conhecimento da Smooth
         kb_results = await kb.search(message, limit=3, doc_type="faq")
-        knowledge_text = "\n".join(f"- {r['title']}: {r['text'][:200]}" for r in kb_results) if kb_results else "(sem dados na base)"
+        knowledge_text = (
+            "\n".join(f"- {r['title']}: {r['text'][:200]}" for r in kb_results)
+            if kb_results
+            else "(sem dados na base)"
+        )
 
         # Gerar resposta
         member_name = context.get("member_name", "membro")
@@ -85,9 +97,14 @@ class M10Smooth(BaseModule):
         clean_reply = reply.replace("[TRANSFERIR_HUMANO]", "").strip()
 
         await feedback_loop.record_decision(
-            module=self.code, action="suporte_smooth",
+            module=self.code,
+            action="suporte_smooth",
             input_data={"question": message[:200]},
-            output_data={"reply": clean_reply[:200], "kb_used": len(kb_results), "transferred": should_transfer},
+            output_data={
+                "reply": clean_reply[:200],
+                "kb_used": len(kb_results),
+                "transferred": should_transfer,
+            },
         )
 
         return {

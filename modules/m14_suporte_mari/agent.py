@@ -160,23 +160,44 @@ class M14SuporteMari(BaseModule):
     )
 
     KEYWORDS = [
-        "suporte mari", "mari", "sdr",
-        "sugestão", "sugestao", "sugere",
-        "objeção", "objecao", "objeções",
-        "lead disse", "resposta para",
-        "como responder", "o que falar",
-        "banco de objeções", "relatório sdr",
+        "suporte mari",
+        "mari",
+        "sdr",
+        "sugestão",
+        "sugestao",
+        "sugere",
+        "objeção",
+        "objecao",
+        "objeções",
+        "lead disse",
+        "resposta para",
+        "como responder",
+        "o que falar",
+        "banco de objeções",
+        "relatório sdr",
     ]
 
     MODE_KEYWORDS = {
-        "suggest": ["sugestão", "sugestao", "sugere", "como responder", "o que falar", "lead disse", "resposta para"],
+        "suggest": [
+            "sugestão",
+            "sugestao",
+            "sugere",
+            "como responder",
+            "o que falar",
+            "lead disse",
+            "resposta para",
+        ],
         "ingest": ["conversa", "importar", "registrar conversa", "cole aqui"],
         "analyze": ["analisar conversas", "processar", "atualizar banco"],
         "report": [
-            "relatório sdr", "relatorio sdr",
-            "relatório de objeções", "relatorio de objecoes",
-            "banco de objeções", "banco de objecoes",
-            "relatório de objeção", "relatorio de objecao",
+            "relatório sdr",
+            "relatorio sdr",
+            "relatório de objeções",
+            "relatorio de objecoes",
+            "banco de objeções",
+            "banco de objecoes",
+            "relatório de objeção",
+            "relatorio de objecao",
         ],
     }
 
@@ -251,7 +272,7 @@ class M14SuporteMari(BaseModule):
                 "success": False,
                 "message": (
                     "Não encontrei o que o lead disse. Use o formato:\n"
-                    "\"suporte mari: [Nome do Curso] lead disse: [mensagem do lead]\""
+                    '"suporte mari: [Nome do Curso] lead disse: [mensagem do lead]"'
                 ),
                 "actions_taken": ["format_error"],
             }
@@ -278,6 +299,7 @@ class M14SuporteMari(BaseModule):
 
         # Parsear JSON de sugestões
         import json
+
         try:
             raw = response["text"].strip()
             # Remove possíveis backticks de markdown
@@ -289,7 +311,9 @@ class M14SuporteMari(BaseModule):
             suggestions = parsed.get("suggestions", [])
         except (json.JSONDecodeError, KeyError):
             # Fallback: dividir por newlines
-            suggestions = [line.strip() for line in response["text"].split("\n") if line.strip()][:3]
+            suggestions = [line.strip() for line in response["text"].split("\n") if line.strip()][
+                :3
+            ]
 
         # Formatar resposta para Mari
         formatted = self._format_suggestions_for_mari(
@@ -334,9 +358,7 @@ class M14SuporteMari(BaseModule):
         # Buscar client_id
         client_id = None
         if client_slug:
-            result = await db.execute(
-                select(Client.id).where(Client.slug == client_slug)
-            )
+            result = await db.execute(select(Client.id).where(Client.slug == client_slug))
             client_id = result.scalar_one_or_none()
 
         # Salvar conversa bruta
@@ -436,6 +458,7 @@ class M14SuporteMari(BaseModule):
     ) -> dict:
         """Analisa uma conversa e retorna objeções + outcome."""
         import json
+
         text = conv.raw_text or ""
         if not text.strip():
             return {"outcome": "unknown", "objections": [], "main_objection": None}
@@ -466,9 +489,7 @@ class M14SuporteMari(BaseModule):
         """Gera relatório executivo do banco de objeções."""
         # Buscar objeções ordenadas por frequência
         result = await db.execute(
-            select(SDRObjection)
-            .order_by(SDRObjection.frequency.desc())
-            .limit(30)
+            select(SDRObjection).order_by(SDRObjection.frequency.desc()).limit(30)
         )
         objections = result.scalars().all()
 
@@ -481,24 +502,27 @@ class M14SuporteMari(BaseModule):
 
         # Buscar distribuição de outcomes
         outcome_result = await db.execute(
-            select(SDRConversation.outcome, func.count(SDRConversation.id))
-            .group_by(SDRConversation.outcome)
+            select(SDRConversation.outcome, func.count(SDRConversation.id)).group_by(
+                SDRConversation.outcome
+            )
         )
         outcomes = dict(outcome_result.all())
 
         # Montar dados para o Claude
         objections_data = "\n".join(
-            f"- [{obj.category.upper()}] \"{obj.objection_text}\" "
+            f'- [{obj.category.upper()}] "{obj.objection_text}" '
             f"(freq: {obj.frequency}, won: {obj.won_with_this_objection}, lost: {obj.lost_with_this_objection})"
-            + (f" | Melhor resposta: \"{(obj.best_responses or [{}])[0].get('text', '')}\"" if obj.best_responses else "")
+            + (
+                f' | Melhor resposta: "{(obj.best_responses or [{}])[0].get("text", "")}"'
+                if obj.best_responses
+                else ""
+            )
             for obj in objections[:20]
         )
 
         outcomes_data = "\n".join(f"- {k}: {v}" for k, v in outcomes.items())
 
-        total_convs_result = await db.execute(
-            select(func.count(SDRConversation.id))
-        )
+        total_convs_result = await db.execute(select(func.count(SDRConversation.id)))
         total = total_convs_result.scalar_one_or_none() or 0
 
         response = await self.ask_claude(
@@ -547,6 +571,7 @@ class M14SuporteMari(BaseModule):
     def _extract_course(self, message: str) -> str | None:
         """Extrai nome do curso do comando. Ex: '[Implante Avançado] lead disse:'"""
         import re
+
         match = re.search(r"\[(.+?)\]", message)
         if match:
             return match.group(1)
@@ -598,13 +623,13 @@ class M14SuporteMari(BaseModule):
                 total = obj.won_with_this_objection + obj.lost_with_this_objection
                 win_rate = round(obj.won_with_this_objection / total * 100)
             lines.append(
-                f"• \"{obj.objection_text}\" ({obj.category}) — {obj.frequency}x | "
+                f'• "{obj.objection_text}" ({obj.category}) — {obj.frequency}x | '
                 f"win rate: {win_rate}%"
             )
             if obj.best_responses:
                 best = obj.best_responses[0].get("text", "")
                 if best:
-                    lines.append(f"  Melhor resposta: \"{best[:150]}\"")
+                    lines.append(f'  Melhor resposta: "{best[:150]}"')
         return "\n".join(lines)
 
     async def _update_objection_db(
@@ -668,14 +693,16 @@ class M14SuporteMari(BaseModule):
         lines = []
         if course_name:
             lines.append(f"📌 *{course_name}*")
-        lines.append(f'💬 Lead: _{lead_message}_')
+        lines.append(f"💬 Lead: _{lead_message}_")
         lines.append("")
         lines.append("✍️ *Sugestões de resposta:*")
         lines.append("")
         for i, s in enumerate(suggestions, 1):
             lines.append(f"*{i}.* {s}")
             lines.append("")
-        lines.append("_Escolha uma, adapte e envie. Se nenhuma servir, me manda o contexto completo._")
+        lines.append(
+            "_Escolha uma, adapte e envie. Se nenhuma servir, me manda o contexto completo._"
+        )
         return "\n".join(lines)
 
     def _top_categories(self, objections: list) -> dict:

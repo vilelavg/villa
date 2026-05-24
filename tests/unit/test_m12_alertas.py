@@ -42,6 +42,7 @@ pytestmark = pytest.mark.unit
 
 # ── Factories ────────────────────────────────────────────────────────────────
 
+
 def make_alert(
     alert_id: str = "alert-uuid-001",
     severity: str = "warning",
@@ -122,7 +123,11 @@ def make_alert_analysis() -> dict:
         "executive_summary": "Um alerta de warning requer atenção. CPL acima do limite.",
         "top_priority": "Reduzir CPL pausando adsets de baixa performance.",
         "suggested_actions": [
-            {"alert_id": "alert-uuid-001", "action": "Pausar adsets com CPL > R$100", "urgency": "today"}
+            {
+                "alert_id": "alert-uuid-001",
+                "action": "Pausar adsets com CPL > R$100",
+                "urgency": "today",
+            }
         ],
     }
 
@@ -136,14 +141,15 @@ FEEDBACK_CONTEXT = {
 
 # ── Testes: sem alertas ───────────────────────────────────────────────────────
 
-class TestSemAlertas:
 
+class TestSemAlertas:
     async def test_sem_alertas_retorna_tudo_ok(self):
         """Quando não há alertas ativos, deve retornar mensagem de sistema saudável."""
         db = make_db_with_alerts(alerts=[])
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
             result = await module.execute(
@@ -159,6 +165,7 @@ class TestSemAlertas:
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
             result = await module.execute(message="alertas", db=db)
@@ -170,19 +177,21 @@ class TestSemAlertas:
 
 # ── Testes: com alertas ativos ────────────────────────────────────────────────
 
-class TestComAlertas:
 
+class TestComAlertas:
     async def test_retorna_success_true_com_alertas(self):
         alerta = make_alert(severity="warning")
         db = make_db_with_alerts(alerts=[alerta])
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response()
                 mock_json.return_value = {"data": make_alert_analysis()}
 
@@ -199,11 +208,13 @@ class TestComAlertas:
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response()
                 mock_json.return_value = {"data": make_alert_analysis()}
 
@@ -217,11 +228,13 @@ class TestComAlertas:
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.return_value = make_claude_response()
                 mock_json.return_value = {"data": make_alert_analysis()}
 
@@ -232,8 +245,8 @@ class TestComAlertas:
 
 # ── Testes: fluxo scheduler ───────────────────────────────────────────────────
 
-class TestFluxoScheduler:
 
+class TestFluxoScheduler:
     async def test_scheduler_daily_aciona_process_pending(self):
         """event_type scheduler_daily deve chamar _process_pending_alerts."""
         alerta = make_alert(sent_whatsapp=False, severity="warning")
@@ -241,6 +254,7 @@ class TestFluxoScheduler:
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
             result = await module.execute(
@@ -258,6 +272,7 @@ class TestFluxoScheduler:
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
             result = await module.execute(
@@ -276,6 +291,7 @@ class TestFluxoScheduler:
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
             await module.execute(
@@ -291,6 +307,7 @@ class TestFluxoScheduler:
 
         with patch("modules.m12_alertas.agent.FeedbackLoop"):
             from modules.m12_alertas.agent import M12Alertas
+
             module = M12Alertas()
 
             result = await module.execute(
@@ -304,8 +321,8 @@ class TestFluxoScheduler:
 
 # ── Testes: acknowledge e resolve ─────────────────────────────────────────────
 
-class TestAcknowledgeEResolve:
 
+class TestAcknowledgeEResolve:
     async def test_acknowledge_alert_sucesso(self):
         alerta = make_alert()
         alerta.acknowledged = False
@@ -317,6 +334,7 @@ class TestAcknowledgeEResolve:
         db.flush = AsyncMock()
 
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
 
         result = await module.acknowledge_alert(
@@ -337,6 +355,7 @@ class TestAcknowledgeEResolve:
         db.execute.return_value = mock_result
 
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
 
         result = await module.acknowledge_alert(
@@ -358,6 +377,7 @@ class TestAcknowledgeEResolve:
         db.flush = AsyncMock()
 
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
 
         result = await module.resolve_alert(db=db, alert_id="alert-uuid-001")
@@ -373,6 +393,7 @@ class TestAcknowledgeEResolve:
         db.execute.return_value = mock_result
 
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
 
         result = await module.resolve_alert(db=db, alert_id="alert-inexistente")
@@ -383,28 +404,32 @@ class TestAcknowledgeEResolve:
 
 # ── Testes: can_handle ────────────────────────────────────────────────────────
 
-class TestCanHandle:
 
+class TestCanHandle:
     async def test_alta_confianca_para_scheduler(self):
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
         score = await module.can_handle("", context={"event_type": "alertas_criticos"})
         assert score >= 0.9
 
     async def test_alta_confianca_para_duas_keywords(self):
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
         score = await module.can_handle("Tem algum alerta crítico ou problema?")
         assert score >= 0.8
 
     async def test_confianca_media_para_uma_keyword(self):
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
         score = await module.can_handle("Tem algum alerta hoje?")
         assert 0.0 < score <= 0.8
 
     async def test_confianca_zero_para_assunto_nao_relacionado(self):
         from modules.m12_alertas.agent import M12Alertas
+
         module = M12Alertas()
         score = await module.can_handle("Gera roteiro de implante para reels")
         assert score == 0.0

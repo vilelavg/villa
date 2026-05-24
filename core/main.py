@@ -53,6 +53,7 @@ async def lifespan(app: FastAPI):
 
     # Inicializar scheduler (rotinas automáticas)
     from scheduler.setup import scheduler, setup_scheduler
+
     setup_scheduler()
     scheduler.start()
     print("   ✅ Scheduler iniciado (diária, semanal, monitores)")

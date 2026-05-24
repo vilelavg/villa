@@ -26,6 +26,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ── Schemas ──
 class TokenData(BaseModel):
     """Dados contidos no JWT."""
+
     user_id: str
     email: str
     role: UserRole
@@ -34,6 +35,7 @@ class TokenData(BaseModel):
 
 class TokenResponse(BaseModel):
     """Resposta do endpoint de login."""
+
     access_token: str
     token_type: str = "bearer"
     expires_in: int
@@ -43,6 +45,7 @@ class TokenResponse(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 # FUNÇÕES DE AUTENTICAÇÃO
 # ═══════════════════════════════════════════════════════════════
+
 
 def hash_password(password: str) -> str:
     """Gera hash bcrypt de uma senha."""
@@ -62,13 +65,13 @@ def create_access_token(
 ) -> str:
     """
     Cria um token JWT com os dados do usuário.
-    
+
     Args:
         user_id: ID do usuário
         email: Email do usuário
         role: Role do usuário (admin, operator, sdr, readonly)
         expires_minutes: Tempo de expiração em minutos (padrão: config)
-        
+
     Returns:
         Token JWT assinado
     """
@@ -88,7 +91,7 @@ def create_access_token(
 def decode_token(token: str) -> TokenData:
     """
     Decodifica e valida um token JWT.
-    
+
     Raises:
         HTTPException 401: Token inválido ou expirado
     """
@@ -116,13 +119,14 @@ def decode_token(token: str) -> TokenData:
 # DEPENDENCIES DO FASTAPI
 # ═══════════════════════════════════════════════════════════════
 
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Dependency que extrai e valida o usuário atual do token JWT.
-    
+
     Uso em routes:
         @router.get("/dados")
         async def dados(user: User = Depends(get_current_user)):
@@ -139,9 +143,7 @@ async def get_current_user(
     token_data = decode_token(credentials.credentials)
 
     # Buscar usuário no banco
-    result = await db.execute(
-        select(User).where(User.id == token_data.user_id)
-    )
+    result = await db.execute(select(User).where(User.id == token_data.user_id))
     user = result.scalar_one_or_none()
 
     if not user:
@@ -162,7 +164,7 @@ async def get_current_user(
 def require_role(*allowed_roles: UserRole):
     """
     Dependency factory que restringe acesso por role.
-    
+
     Uso em routes:
         @router.delete("/cliente/{id}")
         async def deletar(
@@ -171,6 +173,7 @@ def require_role(*allowed_roles: UserRole):
         ):
             ...
     """
+
     async def role_checker(
         user: User = Depends(get_current_user),
     ) -> User:
@@ -210,6 +213,7 @@ async def get_optional_user(
 # AUTENTICAÇÃO DE WEBHOOKS
 # ═══════════════════════════════════════════════════════════════
 
+
 def verify_webhook_signature(
     payload: bytes,
     signature: str,
@@ -218,12 +222,12 @@ def verify_webhook_signature(
     """
     Valida assinatura de webhook (Kommo, Meta, InLead).
     Cada serviço tem seu próprio método de assinatura.
-    
+
     Args:
         payload: Corpo da requisição em bytes
         signature: Assinatura recebida no header
         secret: Secret configurado no .env
-        
+
     Returns:
         True se a assinatura é válida
     """

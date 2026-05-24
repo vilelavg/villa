@@ -24,7 +24,7 @@ from integrations.meta_ads import meta_ads
 class DataCollector:
     """
     Coleta e consolida dados de múltiplas fontes para um cliente.
-    
+
     Uso:
         collector = DataCollector(db)
         data = await collector.collect_all(client, period_start, period_end)
@@ -91,13 +91,14 @@ class DataCollector:
 
         return data
 
-    async def _collect_meta(
-        self, ad_account_id: str, start: date, end: date
-    ) -> dict:
+    async def _collect_meta(self, ad_account_id: str, start: date, end: date) -> dict:
         """Coleta métricas do Meta Ads."""
         # Meta Ads pausado por decisão da reunião Caio+Thaís (19/05/2026)
         # Token não configurado ou integração pausada → retorna vazio silenciosamente
-        if not getattr(settings, 'meta_access_token', '') or settings.meta_access_token in ('', 'TROCAR_AQUI'):
+        if not getattr(settings, "meta_access_token", "") or settings.meta_access_token in (
+            "",
+            "TROCAR_AQUI",
+        ):
             return {"status": "paused", "reason": "Meta Ads pausado — decisão reunião 19/05/2026"}
 
         insights = await meta_ads.get_campaign_insights(ad_account_id, start, end)
@@ -120,16 +121,18 @@ class DataCollector:
             total_clicks += clicks
             total_leads += leads
 
-            campaigns_data.append({
-                "name": ins.get("campaign_name", ""),
-                "id": ins.get("campaign_id", ""),
-                "spend": spend,
-                "impressions": impressions,
-                "clicks": clicks,
-                "ctr": float(ins.get("ctr", 0)),
-                "leads": leads,
-                "cpl": cpl,
-            })
+            campaigns_data.append(
+                {
+                    "name": ins.get("campaign_name", ""),
+                    "id": ins.get("campaign_id", ""),
+                    "spend": spend,
+                    "impressions": impressions,
+                    "clicks": clicks,
+                    "ctr": float(ins.get("ctr", 0)),
+                    "leads": leads,
+                    "cpl": cpl,
+                }
+            )
 
         return {
             "total_spend": round(total_spend, 2),
@@ -141,9 +144,7 @@ class DataCollector:
             "campaigns": campaigns_data,
         }
 
-    async def _collect_google(
-        self, customer_id: str, start: date, end: date
-    ) -> dict:
+    async def _collect_google(self, customer_id: str, start: date, end: date) -> dict:
         """Coleta métricas do Google Ads via Apps Script."""
         days = (end - start).days
         data = await google_ads.get_metrics(customer_id=customer_id, days=days)
@@ -152,9 +153,15 @@ class DataCollector:
     async def _collect_kommo(self, pipeline_id: int) -> dict:
         """Coleta dados do Kommo CRM (leads por etapa)."""
         # Verificar se Kommo está configurado antes de chamar
-        if not getattr(settings, 'kommo_api_token', '') or settings.kommo_api_token in ('', 'TROCAR_AQUI'):
+        if not getattr(settings, "kommo_api_token", "") or settings.kommo_api_token in (
+            "",
+            "TROCAR_AQUI",
+        ):
             return {"status": "not_configured", "reason": "KOMMO_API_TOKEN não configurado"}
-        if not getattr(settings, 'kommo_account_url', '') or settings.kommo_account_url in ('', 'TROCAR_AQUI'):
+        if not getattr(settings, "kommo_account_url", "") or settings.kommo_account_url in (
+            "",
+            "TROCAR_AQUI",
+        ):
             return {"status": "not_configured", "reason": "KOMMO_ACCOUNT_URL não configurado"}
 
         leads = await kommo.get_leads(pipeline_id=pipeline_id, limit=200)
@@ -174,14 +181,11 @@ class DataCollector:
             "total_leads": len(leads),
             "total_value": total_value,
             "by_status": {
-                status_names.get(sid, f"status_{sid}"): count
-                for sid, count in by_status.items()
+                status_names.get(sid, f"status_{sid}"): count for sid, count in by_status.items()
             },
         }
 
-    async def _collect_leads(
-        self, client_id: str, start: date, end: date
-    ) -> dict:
+    async def _collect_leads(self, client_id: str, start: date, end: date) -> dict:
         """Coleta resumo de leads do banco Villa."""
         from datetime import datetime
 
@@ -206,7 +210,12 @@ class DataCollector:
                 by_source[lead.source] = by_source.get(lead.source, 0) + 1
             if lead.deal_value:
                 total_value += lead.deal_value
-            if lead.status in (LeadStatus.QUALIFIED, LeadStatus.SCHEDULED, LeadStatus.PROPOSAL, LeadStatus.WON):
+            if lead.status in (
+                LeadStatus.QUALIFIED,
+                LeadStatus.SCHEDULED,
+                LeadStatus.PROPOSAL,
+                LeadStatus.WON,
+            ):
                 qualified += 1
 
         total = len(leads)
@@ -221,9 +230,7 @@ class DataCollector:
             "lost": by_status.get(LeadStatus.LOST, 0),
         }
 
-    async def _collect_appointments(
-        self, client_id: str, start: date, end: date
-    ) -> dict:
+    async def _collect_appointments(self, client_id: str, start: date, end: date) -> dict:
         """Coleta resumo de agendamentos."""
         from datetime import datetime
 

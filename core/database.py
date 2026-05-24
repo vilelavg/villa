@@ -20,24 +20,25 @@ from core.config import settings
 # ── Engine async ──
 engine: AsyncEngine = create_async_engine(
     settings.async_database_url,
-    echo=settings.debug,                # Loga queries em dev
-    pool_size=10,                        # Conexões simultâneas
-    max_overflow=20,                     # Conexões extras sob carga
-    pool_pre_ping=True,                  # Verifica conexão antes de usar
-    pool_recycle=3600,                   # Recicla conexões a cada 1h
+    echo=settings.debug,  # Loga queries em dev
+    pool_size=10,  # Conexões simultâneas
+    max_overflow=20,  # Conexões extras sob carga
+    pool_pre_ping=True,  # Verifica conexão antes de usar
+    pool_recycle=3600,  # Recicla conexões a cada 1h
 )
 
 # ── Session factory ──
 async_session_factory = async_sessionmaker(
     engine,
     class_=AsyncSession,
-    expire_on_commit=False,              # Objetos acessíveis após commit
+    expire_on_commit=False,  # Objetos acessíveis após commit
 )
 
 
 # ── Base declarativa para modelos ──
 class Base(DeclarativeBase):
     """Classe base para todos os modelos SQLAlchemy do Villa."""
+
     pass
 
 

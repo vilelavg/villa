@@ -4,7 +4,6 @@ A partir de dados de performance do M4, sugere variações de
 gancho, copy e visual para novos criativos com teste A/B.
 """
 
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,16 +52,36 @@ class M11Hipoteses(BaseModule):
     name = "Hipóteses de Criativos"
     description = "Gera hipóteses de novos criativos baseadas em dados de performance, para teste A/B fundamentado em dados."
 
-    KEYWORDS = ["hipótese", "hipotese", "hipóteses", "teste ab", "teste a/b", "variação", "variacao", "criativo novo", "ideias de criativo", "o que testar"]
+    KEYWORDS = [
+        "hipótese",
+        "hipotese",
+        "hipóteses",
+        "teste ab",
+        "teste a/b",
+        "variação",
+        "variacao",
+        "criativo novo",
+        "ideias de criativo",
+        "o que testar",
+    ]
 
     async def can_handle(self, message: str, context: dict | None = None) -> float:
         msg_lower = message.lower()
         matches = sum(1 for kw in self.KEYWORDS if kw in msg_lower)
-        if matches >= 2: return 0.85
-        if matches >= 1: return 0.6
+        if matches >= 2:
+            return 0.85
+        if matches >= 1:
+            return 0.6
         return 0.0
 
-    async def execute(self, message: str, db: AsyncSession, user: User | None = None, client_slug: str | None = None, context: dict | None = None) -> dict:
+    async def execute(
+        self,
+        message: str,
+        db: AsyncSession,
+        user: User | None = None,
+        client_slug: str | None = None,
+        context: dict | None = None,
+    ) -> dict:
         feedback_loop = FeedbackLoop(db)
 
         client = await self._resolve_client(db, client_slug, message)
@@ -110,11 +129,15 @@ class M11Hipoteses(BaseModule):
         if hooks_with_numbers > len(roteiros) // 2:
             patterns.append("Ganchos com números tendem a performar melhor neste cliente")
         if top_performers:
-            patterns.append(f"Média de score dos top performers: {sum(t.get('score',0) for t in top_performers)/len(top_performers):.1f}")
+            patterns.append(
+                f"Média de score dos top performers: {sum(t.get('score', 0) for t in top_performers) / len(top_performers):.1f}"
+            )
 
         # Memória
         memory = await feedback_loop.build_context(
-            module=self.code, action="gerar_hipoteses", client_slug=client.slug,
+            module=self.code,
+            action="gerar_hipoteses",
+            client_slug=client.slug,
         )
 
         response = await self.ask_claude(
@@ -123,19 +146,27 @@ class M11Hipoteses(BaseModule):
                 specialty=client.specialty or "odontologia",
                 top_performers=str(top_performers[:5])[:1500],
                 low_performers=str(low_performers[:3])[:800],
-                approved_roteiros=str([{"hook": r.hook[:80], "feedback": r.human_feedback or ""} for r in roteiros[:5]])[:1000],
-                patterns="\n".join(f"- {p}" for p in patterns) or "Sem padrões identificados ainda (dados insuficientes)",
+                approved_roteiros=str(
+                    [
+                        {"hook": r.hook[:80], "feedback": r.human_feedback or ""}
+                        for r in roteiros[:5]
+                    ]
+                )[:1000],
+                patterns="\n".join(f"- {p}" for p in patterns)
+                or "Sem padrões identificados ainda (dados insuficientes)",
                 count=5,
                 memory_context=memory["prompt_injection"],
             ),
-            db=db, client_slug=client.slug,
+            db=db,
+            client_slug=client.slug,
         )
 
         parsed = await self.claude.extract_json(message=response["text"], model="fast")
         hypotheses = parsed.get("data", {})
 
         await feedback_loop.record_decision(
-            module=self.code, action="gerar_hipoteses",
+            module=self.code,
+            action="gerar_hipoteses",
             input_data={"client": client.slug, "roteiros_analyzed": len(roteiros)},
             output_data={"hypotheses_count": len(hypotheses.get("hypotheses", []))},
             reasoning=memory["reasoning_context"],
@@ -167,5 +198,6 @@ class M11Hipoteses(BaseModule):
             return r.scalar_one_or_none()
         r = await db.execute(select(Client))
         for c in r.scalars().all():
-            if c.name.lower() in message.lower() or c.slug.lower() in message.lower(): return c
+            if c.name.lower() in message.lower() or c.slug.lower() in message.lower():
+                return c
         return None

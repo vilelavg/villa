@@ -18,14 +18,14 @@ from integrations.anthropic_client import AnthropicClient, claude
 class BaseModule(ABC):
     """
     Classe base para todos os módulos do Villa.
-    
+
     Cada módulo implementa:
         - code: identificador do módulo (M01, M02, etc.)
         - name: nome legível
         - description: o que o módulo faz
         - execute(): lógica principal
         - can_handle(): se consegue lidar com determinado comando/evento
-    
+
     A classe base fornece:
         - Acesso ao Claude API
         - Logging de decisões (feedback loop)
@@ -57,14 +57,14 @@ class BaseModule(ABC):
     ) -> dict:
         """
         Executa a tarefa principal do módulo.
-        
+
         Args:
             message: Comando ou dados de entrada
             db: Sessão do banco de dados
             user: Usuário que disparou (None se scheduler/webhook)
             client_slug: Slug do cliente alvo (se aplicável)
             context: Dados adicionais de contexto
-            
+
         Returns:
             dict com: success, message, data, actions_taken
         """
@@ -75,14 +75,14 @@ class BaseModule(ABC):
         """
         Retorna a confiança (0.0 a 1.0) de que este módulo
         é o correto para lidar com o comando/evento.
-        
+
         O orquestrador chama can_handle() de todos os módulos ativos
         e roteia para o que retornar maior confiança.
-        
+
         Args:
             message: Comando em linguagem natural ou tipo de evento
             context: Dados adicionais
-            
+
         Returns:
             Float entre 0.0 (não consigo) e 1.0 (certeza absoluta)
         """
@@ -133,9 +133,7 @@ class BaseModule(ABC):
 
     async def get_config(self, db: AsyncSession) -> dict:
         """Carrega a configuração do módulo do banco."""
-        result = await db.execute(
-            select(ModuleConfig).where(ModuleConfig.module == self.code)
-        )
+        result = await db.execute(select(ModuleConfig).where(ModuleConfig.module == self.code))
         config = result.scalar_one_or_none()
         if config:
             return config.config or {}
@@ -143,9 +141,7 @@ class BaseModule(ABC):
 
     async def get_training_data(self, db: AsyncSession) -> dict | None:
         """Carrega dados de treinamento (exemplos, templates, referências)."""
-        result = await db.execute(
-            select(ModuleConfig).where(ModuleConfig.module == self.code)
-        )
+        result = await db.execute(select(ModuleConfig).where(ModuleConfig.module == self.code))
         config = result.scalar_one_or_none()
         if config:
             return config.training_data
@@ -161,9 +157,7 @@ class BaseModule(ABC):
 
     async def get_status(self, db: AsyncSession) -> dict:
         """Retorna status completo do módulo."""
-        result = await db.execute(
-            select(ModuleConfig).where(ModuleConfig.module == self.code)
-        )
+        result = await db.execute(select(ModuleConfig).where(ModuleConfig.module == self.code))
         config = result.scalar_one_or_none()
 
         return {
@@ -173,7 +167,9 @@ class BaseModule(ABC):
             "is_active": config.is_active if config else False,
             "execution_count": config.execution_count if config else 0,
             "error_count": config.error_count if config else 0,
-            "last_executed_at": config.last_executed_at.isoformat() if config and config.last_executed_at else None,
+            "last_executed_at": config.last_executed_at.isoformat()
+            if config and config.last_executed_at
+            else None,
             "has_training_data": bool(config.training_data) if config else False,
         }
 
@@ -283,9 +279,8 @@ class BaseModule(ABC):
         client_id = None
         if client_slug:
             from core.models import Client
-            result = await db.execute(
-                select(Client.id).where(Client.slug == client_slug)
-            )
+
+            result = await db.execute(select(Client.id).where(Client.slug == client_slug))
             client_id = result.scalar_one_or_none()
 
         entry = DecisionLog(

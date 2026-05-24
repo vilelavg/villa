@@ -25,6 +25,7 @@ router = APIRouter()
 # INLEAD — Novo lead capturado
 # ═══════════════════════════════════════════════════════════════
 
+
 @router.post("/inlead")
 async def webhook_inlead(
     request: Request,
@@ -34,7 +35,7 @@ async def webhook_inlead(
     """
     Recebe leads do InLead via webhook.
     Campos têm naming aleatório — o módulo M3 faz o mapeamento.
-    
+
     Fluxo:
         InLead → este endpoint → identifica cliente → M3 (qualificação)
     """
@@ -72,6 +73,7 @@ async def webhook_inlead(
 # KOMMO — Eventos do CRM (card movido, lead criado, etc.)
 # ═══════════════════════════════════════════════════════════════
 
+
 @router.post("/kommo")
 async def webhook_kommo(
     request: Request,
@@ -80,13 +82,13 @@ async def webhook_kommo(
 ):
     """
     Recebe eventos do Kommo CRM.
-    
+
     Eventos relevantes:
         - lead_added: novo lead no pipeline
         - lead_status_changed: card moveu de etapa
         - lead_deleted: lead removido
         - note_added: nota adicionada ao lead
-    
+
     Fluxo:
         Kommo → este endpoint → identifica evento → módulo correto
     """
@@ -109,7 +111,8 @@ async def webhook_kommo(
         details={
             "event_type": event_type,
             "lead_id": payload.get("leads", {}).get("status", [{}])[0].get("id")
-            if "leads" in payload else None,
+            if "leads" in payload
+            else None,
         },
     )
 
@@ -147,6 +150,7 @@ def _detect_kommo_event(payload: dict) -> str:
 # WHATSAPP — Mensagens recebidas e status de entrega
 # ═══════════════════════════════════════════════════════════════
 
+
 @router.get("/whatsapp")
 async def webhook_whatsapp_verify(
     mode: str = Query(alias="hub.mode", default=""),
@@ -171,11 +175,11 @@ async def webhook_whatsapp(
 ):
     """
     Recebe mensagens e status do WhatsApp Business API.
-    
+
     Tipos de evento:
         - messages: mensagem recebida de um lead/cliente
         - statuses: status de entrega (sent, delivered, read)
-    
+
     Fluxo:
         WhatsApp → este endpoint → identifica tipo → M3 ou M6
     """
@@ -201,18 +205,24 @@ async def webhook_whatsapp(
                 action="webhook_whatsapp_message",
                 module=ModuleCode.M06_ATENDIMENTO,
                 details={
-                    "from": from_number[-4:] if from_number else "",  # Últimos 4 dígitos (privacidade)
+                    "from": from_number[-4:]
+                    if from_number
+                    else "",  # Últimos 4 dígitos (privacidade)
                     "type": msg_type,
                     "has_text": "text" in msg,
                 },
             )
 
             # Rotear para o orquestrador
-            await orchestrator.handle_event("whatsapp_message", {
-                "from": from_number,
-                "message": msg,
-                "contact": value.get("contacts", [{}])[0],
-            }, db)
+            await orchestrator.handle_event(
+                "whatsapp_message",
+                {
+                    "from": from_number,
+                    "message": msg,
+                    "contact": value.get("contacts", [{}])[0],
+                },
+                db,
+            )
 
     if statuses:
         for st in statuses:
@@ -228,6 +238,7 @@ async def webhook_whatsapp(
 # ═══════════════════════════════════════════════════════════════
 # N8N — Eventos de workflows existentes
 # ═══════════════════════════════════════════════════════════════
+
 
 @router.post("/n8n")
 async def webhook_n8n(
@@ -291,9 +302,7 @@ async def webhook_n8n(
     )
 
     # Rotear para o orquestrador
-    results = await orchestrator.handle_event(
-        f"n8n_{event_type}", enriched_payload, db
-    )
+    results = await orchestrator.handle_event(f"n8n_{event_type}", enriched_payload, db)
 
     return {
         "status": "received",

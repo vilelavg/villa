@@ -30,6 +30,7 @@ pytestmark = pytest.mark.unit
 
 # ── Factories ────────────────────────────────────────────────────────────────
 
+
 def make_client(slug: str = "clinica-demo") -> MagicMock:
     """Cria um objeto Client fake com os atributos mínimos necessários."""
     client = MagicMock()
@@ -134,6 +135,7 @@ FEEDBACK_CONTEXT = {
 
 # ── Fixture de setup global ───────────────────────────────────────────────────
 
+
 @pytest.fixture
 def setup_m01(request):
     """
@@ -158,8 +160,8 @@ def setup_m01(request):
 
 # ── Testes de geração básica (happy path) ─────────────────────────────────────
 
-class TestGerarRoteiroHappyPath:
 
+class TestGerarRoteiroHappyPath:
     async def test_retorna_success_true_com_roteiro_valido(self, setup_m01):
         client, db, patches = setup_m01
 
@@ -168,13 +170,16 @@ class TestGerarRoteiroHappyPath:
 
             module = M01Roteiros()
 
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator,
+            ):
                 mock_ask.return_value = make_claude_response(ROTEIRO_VALIDO)
                 mock_json.return_value = BRIEFING_RESPONSE
-                mock_validator.return_value.validate_full = AsyncMock(return_value=make_validation(True))
+                mock_validator.return_value.validate_full = AsyncMock(
+                    return_value=make_validation(True)
+                )
                 mock_validator.return_value.validate_full.return_value = make_validation(True)
                 # hook variations
                 module.claude.extract_json.return_value = {"data": {"variations": []}}
@@ -194,13 +199,16 @@ class TestGerarRoteiroHappyPath:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator,
+            ):
                 mock_ask.return_value = make_claude_response(ROTEIRO_VALIDO)
                 mock_json.return_value = BRIEFING_RESPONSE
-                mock_validator.return_value.validate_full = AsyncMock(return_value=make_validation(True))
+                mock_validator.return_value.validate_full = AsyncMock(
+                    return_value=make_validation(True)
+                )
 
                 result = await module.execute(
                     message="Roteiro de implante",
@@ -218,13 +226,16 @@ class TestGerarRoteiroHappyPath:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator,
+            ):
                 mock_ask.return_value = make_claude_response(ROTEIRO_VALIDO)
                 mock_json.return_value = BRIEFING_RESPONSE
-                mock_validator.return_value.validate_full = AsyncMock(return_value=make_validation(True))
+                mock_validator.return_value.validate_full = AsyncMock(
+                    return_value=make_validation(True)
+                )
 
                 result = await module.execute(
                     message="Roteiro de implante",
@@ -243,13 +254,16 @@ class TestGerarRoteiroHappyPath:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator,
+            ):
                 mock_ask.return_value = make_claude_response(ROTEIRO_VALIDO)
                 mock_json.return_value = BRIEFING_RESPONSE
-                mock_validator.return_value.validate_full = AsyncMock(return_value=make_validation(True))
+                mock_validator.return_value.validate_full = AsyncMock(
+                    return_value=make_validation(True)
+                )
 
                 result = await module.execute(
                     message="Roteiro de implante",
@@ -264,8 +278,8 @@ class TestGerarRoteiroHappyPath:
 
 # ── Testes de resolução de cliente ────────────────────────────────────────────
 
-class TestResolucaoCliente:
 
+class TestResolucaoCliente:
     async def test_cliente_nao_encontrado_retorna_success_false(self):
         """Se o cliente não existir no banco, retorna success=False sem travar."""
         db = make_db(client=None)  # banco não encontra nenhum cliente
@@ -302,8 +316,8 @@ class TestResolucaoCliente:
 
 # ── Testes da tripla validação ────────────────────────────────────────────────
 
-class TestTriplaValidacao:
 
+class TestTriplaValidacao:
     async def test_roteiro_aprovado_quando_validacao_passa(self, setup_m01):
         client, db, patches = setup_m01
 
@@ -313,10 +327,13 @@ class TestTriplaValidacao:
             module = M01Roteiros()
             # Patch direto na instância (não na classe) — o __init__ já criou
             # self.validator antes do patch de classe entrar em vigor.
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch.object(module.validator, "validate_full", new_callable=AsyncMock) as mock_validate:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch.object(
+                    module.validator, "validate_full", new_callable=AsyncMock
+                ) as mock_validate,
+            ):
                 mock_ask.return_value = make_claude_response(ROTEIRO_VALIDO)
                 mock_json.return_value = BRIEFING_RESPONSE
                 mock_validate.return_value = make_validation(True, 8.5)
@@ -342,10 +359,11 @@ class TestTriplaValidacao:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator,
+            ):
                 mock_ask.return_value = make_claude_response(ROTEIRO_VALIDO)
                 mock_json.return_value = BRIEFING_RESPONSE
 
@@ -353,7 +371,7 @@ class TestTriplaValidacao:
                 mock_validator.return_value.validate_full = AsyncMock(
                     side_effect=[
                         make_validation(False, 5.0),  # 1ª: falha
-                        make_validation(True, 8.0),   # 2ª: passa após refinamento
+                        make_validation(True, 8.0),  # 2ª: passa após refinamento
                     ]
                 )
 
@@ -377,10 +395,11 @@ class TestTriplaValidacao:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch("modules.m01_roteiros.agent.RoteiroValidator"):
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch("modules.m01_roteiros.agent.RoteiroValidator"),
+            ):
                 mock_ask.return_value = make_claude_response(texto_sem_estrutura)
                 mock_json.return_value = BRIEFING_RESPONSE
 
@@ -396,8 +415,8 @@ class TestTriplaValidacao:
 
 # ── Testes de resiliência ─────────────────────────────────────────────────────
 
-class TestResiliencia:
 
+class TestResiliencia:
     async def test_falha_do_claude_nao_lanca_excecao(self, setup_m01):
         """Se ask_claude() lançar exceção, execute() deve capturar e retornar dict."""
         client, db, patches = setup_m01
@@ -406,9 +425,10 @@ class TestResiliencia:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.side_effect = Exception("Anthropic API unavailable")
                 mock_json.return_value = BRIEFING_RESPONSE
 
@@ -427,9 +447,10 @@ class TestResiliencia:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+            ):
                 mock_ask.side_effect = TimeoutError()
                 mock_json.return_value = BRIEFING_RESPONSE
 
@@ -443,8 +464,8 @@ class TestResiliencia:
 
 # ── Testes de rastreamento de tokens ─────────────────────────────────────────
 
-class TestTokens:
 
+class TestTokens:
     async def test_tokens_used_presente_e_positivo(self, setup_m01):
         client, db, patches = setup_m01
 
@@ -452,13 +473,16 @@ class TestTokens:
             from modules.m01_roteiros.agent import M01Roteiros
 
             module = M01Roteiros()
-            with patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask, \
-                 patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json, \
-                 patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator:
-
+            with (
+                patch.object(module, "ask_claude", new_callable=AsyncMock) as mock_ask,
+                patch.object(module.claude, "extract_json", new_callable=AsyncMock) as mock_json,
+                patch("modules.m01_roteiros.agent.RoteiroValidator") as mock_validator,
+            ):
                 mock_ask.return_value = make_claude_response(ROTEIRO_VALIDO)
                 mock_json.return_value = BRIEFING_RESPONSE
-                mock_validator.return_value.validate_full = AsyncMock(return_value=make_validation(True))
+                mock_validator.return_value.validate_full = AsyncMock(
+                    return_value=make_validation(True)
+                )
 
                 result = await module.execute(
                     message="Roteiro de implante",
@@ -472,6 +496,7 @@ class TestTokens:
 
 
 # ── Testes de can_handle ──────────────────────────────────────────────────────
+
 
 class TestCanHandle:
     """

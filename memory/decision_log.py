@@ -23,7 +23,7 @@ from core.models import Client, DecisionLog, ModuleCode
 class DecisionLogService:
     """
     Gerencia o ciclo de vida das decisões do Villa.
-    
+
     Ciclo completo:
         # 1. Villa toma uma decisão
         decision_id = await decisions.record(
@@ -34,14 +34,14 @@ class DecisionLogService:
             reasoning="Cliente pediu roteiro de implantes. Base de dados mostra que ganchos com números performam 40% melhor para este cliente.",
             client_slug="ottoboni",
         )
-        
+
         # 2. Resultado é avaliado (dias depois)
         await decisions.evaluate(
             decision_id=decision_id,
             outcome="success",
             outcome_details={"approved": True, "ctr": 2.3, "views": 15000},
         )
-        
+
         # 3. Humano dá feedback
         await decisions.add_feedback(
             decision_id=decision_id,
@@ -71,7 +71,7 @@ class DecisionLogService:
     ) -> str:
         """
         Registra uma decisão. Retorna o ID para avaliação posterior.
-        
+
         Args:
             module: Módulo que tomou a decisão
             action: Tipo de ação (ex: "gerar_roteiro", "qualificar_lead")
@@ -82,16 +82,14 @@ class DecisionLogService:
             tokens_input/output: Tokens consumidos
             model_used: Modelo Claude usado
             cost_usd: Custo estimado
-            
+
         Returns:
             ID da decisão (UUID)
         """
         # Resolver client_id
         client_id = None
         if client_slug:
-            result = await self.db.execute(
-                select(Client.id).where(Client.slug == client_slug)
-            )
+            result = await self.db.execute(select(Client.id).where(Client.slug == client_slug))
             client_id = result.scalar_one_or_none()
 
         decision = DecisionLog(
@@ -124,7 +122,7 @@ class DecisionLogService:
     ) -> None:
         """
         Registra o resultado de uma decisão.
-        
+
         Args:
             decision_id: ID da decisão
             outcome: "success" | "failure" | "partial" | "pending"
@@ -153,7 +151,7 @@ class DecisionLogService:
         """
         Registra feedback humano sobre uma decisão.
         Esse é o sinal mais forte pro Villa aprender.
-        
+
         Exemplos de feedback:
             "Roteiro aprovado, gancho com número funcionou"
             "Rejeitado — tom muito agressivo pro cliente"
@@ -161,9 +159,7 @@ class DecisionLogService:
             "Lead qualificado corretamente, converteu em 3 dias"
         """
         await self.db.execute(
-            update(DecisionLog)
-            .where(DecisionLog.id == decision_id)
-            .values(human_feedback=feedback)
+            update(DecisionLog).where(DecisionLog.id == decision_id).values(human_feedback=feedback)
         )
         await self.db.flush()
 
@@ -183,7 +179,7 @@ class DecisionLogService:
         """
         Busca decisões passadas similares.
         Prioriza: com feedback humano > com outcome > recentes.
-        
+
         Usado pelo feedback loop antes de tomar novas decisões.
         """
         query = (
@@ -289,13 +285,11 @@ class DecisionLogService:
         """
         Analisa padrões de sucesso/falha para um cliente específico.
         O Villa usa isso para personalizar sua abordagem por cliente.
-        
+
         Returns:
             Dict com: successful_patterns, failed_patterns, feedback_themes
         """
-        client_result = await self.db.execute(
-            select(Client.id).where(Client.slug == client_slug)
-        )
+        client_result = await self.db.execute(select(Client.id).where(Client.slug == client_slug))
         client_id = client_result.scalar_one_or_none()
         if not client_id:
             return {"successful_patterns": [], "failed_patterns": [], "feedback_themes": []}
@@ -320,7 +314,8 @@ class DecisionLogService:
                 "outcome_details": d.outcome_details,
                 "human_feedback": d.human_feedback,
             }
-            for d in decisions if d.outcome == "success"
+            for d in decisions
+            if d.outcome == "success"
         ]
 
         failed = [
@@ -330,13 +325,11 @@ class DecisionLogService:
                 "outcome_details": d.outcome_details,
                 "human_feedback": d.human_feedback,
             }
-            for d in decisions if d.outcome == "failure"
+            for d in decisions
+            if d.outcome == "failure"
         ]
 
-        feedback_list = [
-            d.human_feedback for d in decisions
-            if d.human_feedback
-        ]
+        feedback_list = [d.human_feedback for d in decisions if d.human_feedback]
 
         return {
             "client": client_slug,
@@ -355,7 +348,7 @@ class DecisionLogService:
         """
         Busca insights que funcionaram em OUTROS clientes.
         Permite transferência de aprendizado entre clientes.
-        
+
         Ex: Se um gancho com números funciona para Ottoboni (implantes),
         talvez funcione para Linardi (lentes) também.
         """
@@ -381,13 +374,15 @@ class DecisionLogService:
                 )
                 slug = client_result.scalar_one_or_none()
 
-            insights.append({
-                "client": slug or "geral",
-                "action": d.action,
-                "reasoning": d.reasoning,
-                "outcome_details": d.outcome_details,
-                "human_feedback": d.human_feedback,
-            })
+            insights.append(
+                {
+                    "client": slug or "geral",
+                    "action": d.action,
+                    "reasoning": d.reasoning,
+                    "outcome_details": d.outcome_details,
+                    "human_feedback": d.human_feedback,
+                }
+            )
 
         return insights
 

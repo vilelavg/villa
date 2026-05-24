@@ -9,11 +9,10 @@ Formatos:
 """
 
 
-
 class ReportFormatter:
     """
     Formata relatórios consolidados em diferentes formatos de saída.
-    
+
     Uso:
         formatter = ReportFormatter()
         whatsapp_msg = formatter.format_daily_whatsapp(data, analysis)
@@ -119,14 +118,18 @@ class ReportFormatter:
             if meta.get("campaigns"):
                 lines.append("  Campanhas:")
                 for camp in meta["campaigns"][:5]:
-                    lines.append(f"    • {camp['name']}: R${camp['spend']:,.2f} | {camp['leads']} leads | CPL R${camp.get('cpl', 0) or 0:,.2f}")
+                    lines.append(
+                        f"    • {camp['name']}: R${camp['spend']:,.2f} | {camp['leads']} leads | CPL R${camp.get('cpl', 0) or 0:,.2f}"
+                    )
 
         lines.append("")
 
         # ── Leads ──
         lines.append("👤 LEADS")
         lines.append(f"  Total captados: {leads.get('total', 0)}")
-        lines.append(f"  Qualificados: {leads.get('qualified', 0)} ({leads.get('qualification_rate', 0)}%)")
+        lines.append(
+            f"  Qualificados: {leads.get('qualified', 0)} ({leads.get('qualification_rate', 0)}%)"
+        )
         lines.append(f"  Fechados: {leads.get('won', 0)}")
         lines.append(f"  Perdidos: {leads.get('lost', 0)}")
 
@@ -165,7 +168,11 @@ class ReportFormatter:
             comparisons = [
                 ("Leads", curr.get("total_leads", 0), prev.get("total_leads", 0)),
                 ("CPL", curr.get("cpl_consolidated", 0), prev.get("cpl_consolidated", 0)),
-                ("Qualificação", curr.get("qualification_rate", 0), prev.get("qualification_rate", 0)),
+                (
+                    "Qualificação",
+                    curr.get("qualification_rate", 0),
+                    prev.get("qualification_rate", 0),
+                ),
                 ("Investimento", curr.get("total_investment", 0), prev.get("total_investment", 0)),
             ]
 
