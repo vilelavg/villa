@@ -130,16 +130,22 @@ def get_scheduler_status() -> dict:
     """Retorna status do scheduler e suas tarefas."""
     jobs = []
     for job in scheduler.get_jobs():
-        next_run = job.next_run_time
+        try:
+            next_run = job.next_run_time
+            next_run_str = next_run.isoformat() if next_run else "aguardando início"
+        except Exception:
+            next_run_str = "indisponível"
+
         jobs.append({
             "id": job.id,
             "name": job.name,
-            "next_run": next_run.isoformat() if next_run else None,
+            "next_run": next_run_str,
             "trigger": str(job.trigger),
         })
 
     return {
         "running": scheduler.running,
         "timezone": str(scheduler.timezone),
+        "jobs_count": len(jobs),
         "jobs": jobs,
     }

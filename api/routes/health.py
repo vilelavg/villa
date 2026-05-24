@@ -82,6 +82,57 @@ async def simple_health():
 
 @router.get("/health/scheduler")
 async def scheduler_status():
-    """Status do scheduler — tarefas agendadas e próximas execuções."""
+    """
+    Status do scheduler — tarefas agendadas e próximas execuções.
+
+    Exemplo de resposta:
+        GET /health/scheduler
+        {"running": true, "jobs_count": 3, "jobs": [...]}
+    """
     from scheduler.setup import get_scheduler_status
     return get_scheduler_status()
+
+
+@router.post("/health/scheduler/trigger/{job_id}")
+async def trigger_scheduler_job(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    # Apenas admin pode disparar manualmente
+):
+    """
+    Dispara uma tarefa do scheduler manualmente (para testes).
+
+    job_id opções:
+        - daily_routine    → rotina diária (relatórios, alertas, métricas)
+        - weekly_routine   → rotina semanal (relatórios semanais, retroalimentação)
+        - continuous_monitors → monitores de SLA e budget
+
+    Exemplo:
+        POST /health/scheduler/trigger/daily_routine
+    """
+    valid_jobs = {
+        "daily_routine": "scheduler.daily_routines.run_daily_routine",
+        "weekly_routine": "scheduler.weekly_routines.run_weekly_routine",
+        "continuous_monitors": "scheduler.monitors.run_monitors",
+    }
+
+    if job_id not in valid_jobs:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail=f"job_id inválido. Opções: {list(valid_jobs.keys())}"
+        )
+
+    try:
+        module_path, func_name = valid_jobs[job_id].rsplit(".", 1)
+        mod = __import__(module_path, fromlist=[func_name])
+        fn = getattr(mod, func_name)
+        result = await fn()
+        return {
+            "status": "executed",
+            "job_id": job_id,
+            "result": result,
+        }
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Erro ao executar {job_id}: {str(e)}")

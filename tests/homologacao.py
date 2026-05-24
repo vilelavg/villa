@@ -4,40 +4,77 @@ Roda ANTES de marcar qualquer módulo como concluído.
 Todos os testes precisam passar para o módulo ir para produção.
 
 Uso:
-    python tests/homologacao.py              # todos os módulos
-    python tests/homologacao.py m01          # módulo específico
+    python tests/homologacao.py              # todos os níveis
+    python tests/homologacao.py --skip-db    # pula conexão ao banco (offline)
 """
 
 import asyncio
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
+import re
+import urllib.parse
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 # ═══════════════════════════════════════════════════════
-# NÍVEL 1 — INFRAESTRUTURA (banco, extensões, tabelas)
+# HELPERS
+# ═══════════════════════════════════════════════════════
+
+def build_safe_db_url(db_url: str) -> str:
+    """Constrói URL segura para asyncpg — trata senhas com @ e # corretamente."""
+    m = re.match(
+        r'postgresql(?:\+asyncpg)?://([^:]+):(.+)@([^:@]+):?(\d+)?/(.+)',
+        db_url
+    )
+    if not m:
+        return db_url.replace('postgresql+asyncpg://', 'postgresql://')
+    user, password, host, port, db = m.groups()
+    port = port or '5432'
+    safe_password = urllib.parse.quote(password, safe='')
+    return f"postgresql://{user}:{safe_password}@{host}:{port}/{db}"
+
+
+def result(check: str, ok: bool, fix: str = None) -> dict:
+    return {"check": check, "ok": ok, "fix": fix}
+
+
+# ═══════════════════════════════════════════════════════
+# NÍVEL 1 — INFRAESTRUTURA DO BANCO
 # ═══════════════════════════════════════════════════════
 
 async def check_infra(db_url: str) -> list[dict]:
-    """Verifica se toda a infraestrutura necessária está em ordem."""
+    """Verifica banco, extensões, tabelas, enums e módulos ativos."""
     import asyncpg
     results = []
 
-    conn = await asyncpg.connect(db_url)
-    try:
-        # 1. pgvector habilitado
-        row = await conn.fetchrow(
-            "SELECT COUNT(*) FROM pg_extension WHERE extname = 'vector'"
-        )
-        results.append({
-            "check": "pgvector extension",
-            "ok": row["count"] > 0,
-            "fix": "CREATE EXTENSION IF NOT EXISTS vector;",
-        })
+    safe_url = build_safe_db_url(db_url)
 
-        # 2. Tabelas obrigatórias existem
+    try:
+        conn = await asyncpg.connect(safe_url)
+    except Exception as e:
+        return [result("conexão ao banco", False, f"Verificar DATABASE_URL. Erro: {e}")]
+
+    try:
+        # ── Extensões ──
+        exts = {r["extname"] for r in await conn.fetch("SELECT extname FROM pg_extension")}
+
+        results.append(result(
+            "extensão vector (pgvector)",
+            "vector" in exts,
+            "CREATE EXTENSION IF NOT EXISTS vector;"
+        ))
+        results.append(result(
+            "extensão uuid-ossp",
+            "uuid-ossp" in exts,
+            'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+        ))
+
+        # ── Tabelas ──
+        existing = {r["tablename"] for r in await conn.fetch(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+        )}
         required_tables = [
             "users", "clients", "leads", "appointments", "campaigns",
             "roteiros", "reports", "module_configs", "audit_logs",
@@ -45,63 +82,75 @@ async def check_infra(db_url: str) -> list[dict]:
             "sdr_conversations", "sdr_objections",
             "smooth_messages", "smooth_members", "smooth_insights",
         ]
-        existing = await conn.fetch(
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-        )
-        existing_names = {r["tablename"] for r in existing}
         for table in required_tables:
-            ok = table in existing_names
-            results.append({
-                "check": f"tabela {table}",
-                "ok": ok,
-                "fix": f"Rodar migration correspondente" if not ok else None,
-            })
+            results.append(result(
+                f"tabela {table}",
+                table in existing,
+                "Rodar migration correspondente" if table not in existing else None
+            ))
 
-        # 3. Enums corretos no banco
-        enums_expected = {
+        # ── Enums ──
+        enum_checks = {
             "userrole":      ["admin", "operator", "sdr", "readonly"],
-            "module_code":   ["m01_roteiros", "m02_relatorios", "m14_suporte_mari"],
+            "module_code":   ["m01_roteiros", "m02_relatorios", "m14_suporte_mari",
+                              "m15_monitor_smooth"],
             "client_status": ["active", "onboarding", "paused", "churned"],
+            "action_risk":   ["low", "medium", "high"],
         }
-        for enum_name, expected_vals in enums_expected.items():
+        for enum_name, expected in enum_checks.items():
             rows = await conn.fetch(
-                "SELECT enumlabel FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid "
-                "WHERE t.typname = $1", enum_name
+                "SELECT enumlabel FROM pg_enum e "
+                "JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = $1",
+                enum_name
             )
             actual = {r["enumlabel"] for r in rows}
-            for val in expected_vals:
-                ok = val in actual
-                results.append({
-                    "check": f"enum {enum_name}.{val}",
-                    "ok": ok,
-                    "fix": f"ALTER TYPE {enum_name} ADD VALUE IF NOT EXISTS '{val}';" if not ok else None,
-                })
+            for val in expected:
+                results.append(result(
+                    f"enum {enum_name} → '{val}'",
+                    val in actual,
+                    f"ALTER TYPE {enum_name} ADD VALUE IF NOT EXISTS '{val}';"
+                    if val not in actual else None
+                ))
 
-        # 4. Módulos ativos no banco
-        active_modules = await conn.fetch(
+        # ── Module configs ativos ──
+        active = {r["module"] for r in await conn.fetch(
             "SELECT module FROM module_configs WHERE is_active = true"
-        )
-        active = {r["module"] for r in active_modules}
+        )}
         required_active = [
             "m01_roteiros", "m02_relatorios", "m04_campanhas",
             "m07_retroalimentacao", "m08_onboarding", "m09_arquivos",
             "m10_smooth", "m11_hipoteses", "m12_alertas", "m14_suporte_mari",
         ]
         for mod in required_active:
-            ok = mod in active
-            results.append({
-                "check": f"module_config ativo: {mod}",
-                "ok": ok,
-                "fix": f"INSERT INTO module_configs (module, is_active, config) VALUES ('{mod}', TRUE, '{{}}') ON CONFLICT (module) DO UPDATE SET is_active = TRUE;" if not ok else None,
-            })
+            results.append(result(
+                f"module_config ativo: {mod}",
+                mod in active,
+                f"INSERT INTO module_configs (module, is_active, config) "
+                f"VALUES ('{mod}', TRUE, '{{}}') "
+                f"ON CONFLICT (module) DO UPDATE SET is_active = TRUE;"
+                if mod not in active else None
+            ))
 
-        # 5. Ao menos 1 cliente cadastrado
-        client_count = await conn.fetchrow("SELECT COUNT(*) FROM clients")
-        results.append({
-            "check": "ao menos 1 cliente cadastrado",
-            "ok": client_count["count"] > 0,
-            "fix": "POST /clients com dados do primeiro cliente",
-        })
+        # ── Ao menos 1 cliente ──
+        count = await conn.fetchval("SELECT COUNT(*) FROM clients")
+        results.append(result(
+            "ao menos 1 cliente cadastrado",
+            count > 0,
+            "POST /clients com dados do primeiro cliente"
+        ))
+
+        # ── pgvector funciona na prática ──
+        try:
+            await conn.execute(
+                "SELECT '[1,2,3]'::vector <=> '[1,2,3]'::vector"
+            )
+            results.append(result("pgvector operador <=> funciona", True))
+        except Exception as e:
+            results.append(result(
+                "pgvector operador <=> funciona",
+                False,
+                f"CREATE EXTENSION IF NOT EXISTS vector; Erro: {e}"
+            ))
 
     finally:
         await conn.close()
@@ -114,7 +163,7 @@ async def check_infra(db_url: str) -> list[dict]:
 # ═══════════════════════════════════════════════════════
 
 async def check_modules() -> list[dict]:
-    """Verifica se todos os módulos instanciam sem erro."""
+    """Verifica se todos os módulos instanciam e respondem corretamente."""
     import ast
     results = []
 
@@ -137,48 +186,53 @@ async def check_modules() -> list[dict]:
 
     for cls_name, mod_path in modules:
         # Sintaxe
+        file_path = mod_path.replace(".", "/") + ".py"
         try:
-            file_path = mod_path.replace(".", "/") + ".py"
             ast.parse(open(file_path).read())
-            syntax_ok = True
         except SyntaxError as e:
-            results.append({"check": f"{cls_name} sintaxe", "ok": False, "fix": str(e)})
+            results.append(result(f"{cls_name} sintaxe", False, str(e)))
             continue
 
-        # Import + instanciação
+        # Import + instanciação + can_handle
         try:
             mod = __import__(mod_path, fromlist=[cls_name])
             cls = getattr(mod, cls_name)
             instance = cls()
-
-            # can_handle com mensagem vazia não pode lançar exceção
             score = await instance.can_handle("teste")
             assert isinstance(score, float), "can_handle deve retornar float"
-
-            results.append({"check": f"{cls_name} instanciação + can_handle", "ok": True})
+            results.append(result(f"{cls_name} instanciação + can_handle", True))
         except Exception as e:
-            results.append({
-                "check": f"{cls_name} instanciação",
-                "ok": False,
-                "fix": str(e)[:100],
-            })
+            results.append(result(f"{cls_name} instanciação", False, str(e)[:120]))
+
+    # ── Arquivos críticos de memória ──
+    memory_files = [
+        ("memory/embeddings.py",    "CAST(:query_vec AS vector)",   "Fix: usar CAST na query pgvector"),
+        ("memory/feedback_loop.py", "begin_nested",                  "Fix: usar savepoint no knowledge base"),
+    ]
+    for filepath, expected_token, fix_msg in memory_files:
+        try:
+            content = open(filepath).read()
+            ok = expected_token in content
+            results.append(result(f"{filepath} — '{expected_token}'", ok, fix_msg if not ok else None))
+        except FileNotFoundError:
+            results.append(result(f"{filepath} existe", False, "Arquivo não encontrado"))
 
     return results
 
 
 # ═══════════════════════════════════════════════════════
-# NÍVEL 3 — ROTEAMENTO (módulos corretos ativados)
+# NÍVEL 3 — ROTEAMENTO
 # ═══════════════════════════════════════════════════════
 
 async def check_routing() -> list[dict]:
-    """Verifica se os comandos mais comuns roteiam para o módulo correto."""
+    """Verifica se comandos comuns roteiam para o módulo correto."""
     results = []
 
     routing_cases = [
-        ("gera roteiro de implante", "M01Roteiros", "modules.m01_roteiros.agent", 0.7),
-        ("relatorio semanal webxp", "M02Relatorios", "modules.m02_relatorios.agent", 0.6),
-        ("qualificar lead instagram", "M03Qualificacao", "modules.m03_qualificacao.agent", 0.7),
-        ("agendar consulta amanha", "M05Agendamento", "modules.m05_agendamento.agent", 0.5),
+        ("gera roteiro de implante",                "M01Roteiros",    "modules.m01_roteiros.agent",    0.7),
+        ("relatorio semanal webxp",                 "M02Relatorios",  "modules.m02_relatorios.agent",  0.6),
+        ("qualificar lead instagram",               "M03Qualificacao","modules.m03_qualificacao.agent", 0.7),
+        ("agendar consulta amanha",                 "M05Agendamento", "modules.m05_agendamento.agent",  0.5),
         ("suporte mari lead disse nao tenho tempo", "M14SuporteMari", "modules.m14_suporte_mari.agent", 0.8),
     ]
 
@@ -188,30 +242,31 @@ async def check_routing() -> list[dict]:
             instance = getattr(mod, cls_name)()
             score = await instance.can_handle(msg)
             ok = score >= min_score
-            results.append({
-                "check": f'routing: "{msg[:35]}" → {cls_name}',
-                "ok": ok,
-                "fix": f"Score {score:.2f} < mínimo {min_score}. Revisar KEYWORDS." if not ok else None,
-            })
+            results.append(result(
+                f'routing: "{msg[:35]}" → {cls_name}',
+                ok,
+                f"Score {score:.2f} < mínimo {min_score}. Revisar KEYWORDS." if not ok else None
+            ))
         except Exception as e:
-            results.append({"check": f"routing {cls_name}", "ok": False, "fix": str(e)[:100]})
+            results.append(result(f"routing {cls_name}", False, str(e)[:100]))
 
-    # Stand-by não intercepta roteamento
-    stanby_cases = [
+    # Stand-by: execute retorna mensagem explicativa
+    for cls_name, mod_path in [
         ("M03Qualificacao", "modules.m03_qualificacao.agent"),
         ("M05Agendamento",  "modules.m05_agendamento.agent"),
         ("M06Atendimento",  "modules.m06_atendimento.agent"),
-    ]
-    for cls_name, mod_path in stanby_cases:
-        mod = __import__(mod_path, fromlist=[cls_name])
-        instance = getattr(mod, cls_name)()
-        result = await instance.execute("teste", db=None)
-        ok = result.get("success") == False and "STAND_BY" in result.get("message", "").upper() or "stand_by" in str(result.get("actions_taken", []))
-        results.append({
-            "check": f"{cls_name} stand-by bloqueia execute",
-            "ok": ok,
-            "fix": "Verificar guard STAND_BY no execute()" if not ok else None,
-        })
+    ]:
+        try:
+            mod = __import__(mod_path, fromlist=[cls_name])
+            instance = getattr(mod, cls_name)()
+            r = await instance.execute("teste", db=None)
+            ok = (r.get("success") == False and
+                  ("stand_by" in str(r.get("actions_taken", [])) or
+                   "STAND_BY" in r.get("message", "").upper()))
+            results.append(result(f"{cls_name} stand-by bloqueia execute", ok,
+                "Verificar guard STAND_BY no execute()" if not ok else None))
+        except Exception as e:
+            results.append(result(f"{cls_name} stand-by", False, str(e)[:100]))
 
     return results
 
@@ -220,7 +275,7 @@ async def check_routing() -> list[dict]:
 # RUNNER PRINCIPAL
 # ═══════════════════════════════════════════════════════
 
-async def run(db_url: str = None):
+async def run(skip_db: bool = False):
     print()
     print("╔══════════════════════════════════════════════════╗")
     print("║     VILLA — SUITE DE HOMOLOGAÇÃO                ║")
@@ -228,17 +283,23 @@ async def run(db_url: str = None):
     print("╚══════════════════════════════════════════════════╝")
     print()
 
-    all_results = []
     total_ok = 0
     total_fail = 0
 
-    sections = [
-        ("NÍVEL 2 — MÓDULOS",    check_modules,  None),
-        ("NÍVEL 3 — ROTEAMENTO", check_routing,  None),
-    ]
+    db_url = os.getenv("DATABASE_URL", "")
 
-    if db_url:
-        sections.insert(0, ("NÍVEL 1 — INFRAESTRUTURA", check_infra, db_url))
+    sections = []
+    if not skip_db and db_url:
+        sections.append(("NÍVEL 1 — INFRAESTRUTURA (banco)", check_infra, db_url))
+    elif not skip_db and not db_url:
+        print("⚠️  DATABASE_URL não definida — pulando Nível 1")
+        print("   Para rodar com banco: DATABASE_URL=... python tests/homologacao.py")
+        print()
+
+    sections += [
+        ("NÍVEL 2 — MÓDULOS",    check_modules, None),
+        ("NÍVEL 3 — ROTEAMENTO", check_routing, None),
+    ]
 
     for section_name, fn, arg in sections:
         print(f"── {section_name} ──")
@@ -246,24 +307,25 @@ async def run(db_url: str = None):
             results = await fn(arg) if arg else await fn()
         except Exception as e:
             print(f"  ❌ ERRO AO EXECUTAR SEÇÃO: {e}")
+            total_fail += 1
+            print()
             continue
 
         for r in results:
             status = "✅" if r["ok"] else "❌"
             print(f"  {status} {r['check']}")
             if not r["ok"] and r.get("fix"):
-                print(f"     FIX: {r['fix']}")
+                print(f"     → FIX: {r['fix']}")
             if r["ok"]:
                 total_ok += 1
             else:
                 total_fail += 1
-            all_results.append(r)
         print()
 
     print("═══════════════════════════════════════════════════")
     print(f"  Resultado: {total_ok} OK  |  {total_fail} FALHAS")
     if total_fail == 0:
-        print("  ✅ HOMOLOGAÇÃO APROVADA — módulo pronto para produção")
+        print("  ✅ HOMOLOGAÇÃO APROVADA — pronto para produção")
     else:
         print("  ❌ HOMOLOGAÇÃO REPROVADA — corrigir falhas antes de prosseguir")
     print("═══════════════════════════════════════════════════")
@@ -273,6 +335,6 @@ async def run(db_url: str = None):
 
 
 if __name__ == "__main__":
-    db_url = os.getenv("DATABASE_URL", "").replace("postgresql+asyncpg://", "postgresql://")
-    ok = asyncio.run(run(db_url if db_url else None))
+    skip_db = "--skip-db" in sys.argv
+    ok = asyncio.run(run(skip_db=skip_db))
     sys.exit(0 if ok else 1)

@@ -239,30 +239,68 @@ async def webhook_n8n(
 ):
     """
     Recebe eventos do N8N (workflows existentes da WebXP).
-    Permite que automações N8N disparem ações no Villa.
-    
-    Ex: Workflow de CAPI concluído → Villa registra conversão
-    """
-    # Validar API key do N8N
-    if settings.n8n_api_key and x_n8n_api_key != settings.n8n_api_key:
-        raise HTTPException(status_code=401, detail="API key inválida")
 
-    payload = await request.json()
+    Payload esperado:
+        {
+            "event": "inlead_new_lead",      ← tipo do evento
+            "workflow": "inlead_capture",    ← nome do workflow no N8N
+            "client_slug": "webxp",          ← cliente (opcional)
+            "data": { ...dados do evento... }
+        }
+
+    Eventos suportados:
+        n8n_inlead_new_lead      → M02 (relatório) + M14 (SDR)
+        n8n_kommo_lead_updated   → M02 (relatório)
+        n8n_capi_event           → M04 (campanhas)
+        n8n_report_request       → M02 (relatório)
+
+    Header obrigatório:
+        x-n8n-api-key: {N8N_API_KEY do .env}
+    """
+    # Validar API key
+    if settings.n8n_api_key and x_n8n_api_key != settings.n8n_api_key:
+        raise HTTPException(status_code=401, detail="N8N API key inválida")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Payload inválido — esperado JSON")
+
     workflow_name = payload.get("workflow", "unknown")
     event_type = payload.get("event", "generic")
+    client_slug = payload.get("client_slug")
+    data = payload.get("data", {})
+
+    # Enriquecer payload com client_slug para o orquestrador
+    enriched_payload = {
+        **payload,
+        "source": "n8n",
+        "workflow": workflow_name,
+        "client_slug": client_slug,
+        "data": data,
+    }
 
     audit = AuditService(db)
     await audit.log(
         action=f"webhook_n8n_{event_type}",
-        details={"workflow": workflow_name, "data_keys": list(payload.get("data", {}).keys())},
+        details={
+            "workflow": workflow_name,
+            "client_slug": client_slug,
+            "event": event_type,
+            "data_keys": list(data.keys()),
+        },
     )
 
     # Rotear para o orquestrador
-    await orchestrator.handle_event(f"n8n_{event_type}", payload, db)
+    results = await orchestrator.handle_event(
+        f"n8n_{event_type}", enriched_payload, db
+    )
 
     return {
         "status": "received",
         "source": "n8n",
         "workflow": workflow_name,
+        "event": event_type,
+        "modules_triggered": [r.get("module") for r in results if r.get("success")],
         "timestamp": datetime.utcnow().isoformat(),
     }

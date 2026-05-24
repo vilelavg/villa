@@ -360,6 +360,13 @@ class Orchestrator:
                 routes.append(ModuleCode.M04_CAMPANHAS)
             elif "report" in event_type:
                 routes.append(ModuleCode.M02_RELATORIOS)
+            elif "inlead" in event_type or "new_lead" in event_type or "lead" in event_type:
+                # Lead captado via N8N (InLead → N8N → Villa)
+                routes.append(ModuleCode.M02_RELATORIOS)    # registrar no relatório
+                routes.append(ModuleCode.M14_SUPORTE_MARI)  # analisar para banco SDR
+            elif "kommo" in event_type:
+                # Evento do Kommo roteado via N8N
+                routes.append(ModuleCode.M02_RELATORIOS)
 
         elif "scheduler" in event_type:
             if "daily" in event_type:
@@ -497,6 +504,21 @@ def setup_orchestrator() -> Orchestrator:
     ])
     orchestrator.register_event_route("scheduler_weekly_smooth_insights", [
         ModuleCode.M15_MONITOR_SMOOTH,
+    ])
+
+    # ── Eventos N8N (InLead → N8N → Villa) ──
+    orchestrator.register_event_route("n8n_inlead_new_lead", [
+        ModuleCode.M02_RELATORIOS,
+        ModuleCode.M14_SUPORTE_MARI,
+    ])
+    orchestrator.register_event_route("n8n_kommo_lead_updated", [
+        ModuleCode.M02_RELATORIOS,
+    ])
+    orchestrator.register_event_route("n8n_capi_event", [
+        ModuleCode.M04_CAMPANHAS,
+    ])
+    orchestrator.register_event_route("n8n_report_request", [
+        ModuleCode.M02_RELATORIOS,
     ])
 
     return orchestrator
