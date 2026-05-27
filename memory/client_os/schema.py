@@ -34,7 +34,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 try:
@@ -57,7 +57,7 @@ class ClientStateRow(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     client_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
@@ -97,7 +97,7 @@ class ClientFact(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     client_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -145,7 +145,7 @@ class ClientEpisode(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     client_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -199,7 +199,7 @@ class ClientPreference(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     client_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -241,7 +241,7 @@ class ClientPendingItem(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     client_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -292,7 +292,7 @@ class ClientObjective(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     client_id: Mapped[uuid.UUID] = mapped_column(
-        PgUUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("clients.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

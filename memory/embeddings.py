@@ -16,7 +16,7 @@ A interface pública é a mesma da versão anterior — módulos consumidores
 from __future__ import annotations
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 from uuid import uuid4
 
 import voyageai

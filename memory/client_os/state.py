@@ -50,7 +50,7 @@ class ClientOS:
     objetivos. Compila narrativa textual injetável em prompts via `.narrative()`.
     """
 
-    def __init__(self, db: AsyncSession, client_id: "uuid.UUID", client_slug: str):
+    def __init__(self, db: AsyncSession, client_id: uuid.UUID, client_slug: str):
         self.db = db
         self.client_id = client_id
         self.client_slug = client_slug
@@ -58,7 +58,7 @@ class ClientOS:
     # ---------- BOOTSTRAP ----------
 
     @classmethod
-    async def for_slug(cls, db: AsyncSession, client_slug: str) -> "ClientOS":
+    async def for_slug(cls, db: AsyncSession, client_slug: str) -> ClientOS:
         """
         Resolve client_slug → ClientOS pronto pra usar.
 

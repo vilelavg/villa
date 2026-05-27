@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
 
 from memory.client_os.narrative import (
     _format_fact_value,
