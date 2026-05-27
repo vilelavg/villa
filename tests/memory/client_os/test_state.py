@@ -11,7 +11,7 @@ Cobre:
 - Snapshot agregado
 - Bump de version
 
-Requer fixture `db` (AsyncSession PostgreSQL) do conftest raiz do projeto.
+Requer fixture `db_session` (AsyncSession PostgreSQL) do conftest raiz do projeto.
 Usa features PG-only (JSONB, ON CONFLICT) e não roda em SQLite.
 """
 from __future__ import annotations
@@ -31,14 +31,14 @@ pytestmark = pytest.mark.asyncio
 # ---------- Resolução por slug ----------
 
 class TestClientResolution:
-    async def test_for_slug_resolves_existing(self, db, sample_client):
-        os_ = await ClientOS.for_slug(db, sample_client.slug)
+    async def test_for_slug_resolves_existing(self, db_session, sample_client):
+        os_ = await ClientOS.for_slug(db_session, sample_client.slug)
         assert os_.client_slug == sample_client.slug
         assert os_.client_id == sample_client.id
 
-    async def test_for_slug_raises_for_missing(self, db):
+    async def test_for_slug_raises_for_missing(self, db_session):
         with pytest.raises(ClientNotFoundError):
-            await ClientOS.for_slug(db, "nao_existe_12345")
+            await ClientOS.for_slug(db_session, "nao_existe_12345")
 
 
 # ---------- Fatos ----------
@@ -328,23 +328,23 @@ class TestSnapshot:
 # ---------- Bump de version ----------
 
 class TestVersionBumping:
-    async def _get_version(self, db, client_id):
-        result = await db.execute(
+    async def _get_version(self, db_session, client_id):
+        result = await db_session.execute(
             select(ClientStateRow).where(ClientStateRow.client_id == client_id)
         )
         row = result.scalar_one_or_none()
         return row.version if row else None
 
-    async def test_version_starts_at_one_after_first_write(self, db, client_os):
+    async def test_version_starts_at_one_after_first_write(self, db_session, client_os):
         await client_os.upsert_fact("c", "k", "v")
-        version = await self._get_version(db, client_os.client_id)
+        version = await self._get_version(db_session, client_os.client_id)
         assert version == 1
 
-    async def test_version_increments_on_subsequent_writes(self, db, client_os):
+    async def test_version_increments_on_subsequent_writes(self, db_session, client_os):
         await client_os.upsert_fact("c", "k1", "v1")
         await client_os.upsert_fact("c", "k2", "v2")
         await client_os.record_episode("test", "x")
-        version = await self._get_version(db, client_os.client_id)
+        version = await self._get_version(db_session, client_os.client_id)
         # 1 (criação) + 2 increments
         assert version == 3
 
