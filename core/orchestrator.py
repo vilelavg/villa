@@ -83,19 +83,32 @@ class Orchestrator:
         user: User,
         client_slug: str | None = None,
         module_hint: ModuleCode | None = None,
+        session_id: str | None = None,
     ) -> CommandResponse:
         """
         Processa um comando em linguagem natural.
 
         Fluxo:
-            1. Se module_hint foi dado, usa direto
-            2. Senão, pede ao Claude para classificar o comando
-            3. Verifica permissões do usuário
-            4. Verifica se o módulo está ativo
-            5. Executa o módulo
-            6. Registra no audit log
+            1. Carrega historico de sessao (Working Memory, se session_id)
+            2. Se module_hint foi dado, usa direto
+            3. Senao, pede ao Claude para classificar o comando
+            4. Verifica permissoes do usuario
+            5. Verifica se o modulo esta ativo
+            6. Executa o modulo (passando conversation no context)
+            7. Salva par (user, assistant) na Working Memory
+            8. Registra no audit log
         """
+        from memory.working_memory import load_session_history, save_exchange
+
         audit = AuditService(db)
+
+        # ── Passo 0: Carregar historico de sessao (defensivo) ──
+        conversation_history: list[dict] = []
+        if session_id and user:
+            try:
+                conversation_history = await load_session_history(user.id, session_id)
+            except Exception:
+                conversation_history = []
 
         # ── Passo 1: Resolver o módulo ──
         if module_hint and module_hint in self._modules:
@@ -150,10 +163,26 @@ class Orchestrator:
                 db=db,
                 user=user,
                 client_slug=resolved_slug,
-                context={"route_method": route_method},
+                context={
+                    "route_method": route_method,
+                    "conversation": conversation_history,
+                    "session_id": session_id,
+                },
             )
 
             await target_module.increment_execution(db, success=True)
+
+            # ── Salvar troca na Working Memory (defensivo) ──
+            if session_id and user and result.get("success", True):
+                try:
+                    await save_exchange(
+                        user_id=user.id,
+                        session_id=session_id,
+                        user_message=message,
+                        assistant_response=result.get("message", ""),
+                    )
+                except Exception:
+                    pass  # WM nunca derruba o fluxo
 
             await audit.log(
                 action=f"command_executed_{target_module.code.value}",
@@ -174,6 +203,7 @@ class Orchestrator:
                 data=result.get("data"),
                 actions_taken=result.get("actions_taken", []),
                 tokens_used=result.get("tokens_used"),
+                session_id=session_id,
             )
 
         except Exception as e:
@@ -193,6 +223,7 @@ class Orchestrator:
                 message=f"Erro ao executar {target_module.name}: {str(e)}",
                 module_used=target_module.code.value,
                 actions_taken=["execution_error"],
+                session_id=session_id,
             )
 
     # ═══════════════════════════════════════════════════

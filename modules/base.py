@@ -5,6 +5,7 @@ Define a interface padrão: execute, can_handle, get_status.
 """
 
 import logging
+import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from uuid import uuid4
@@ -21,6 +22,13 @@ logger = logging.getLogger(__name__)
 # Limite de caracteres do Client OS narrative injetado no system prompt.
 # Acima disso, o narrative e truncado para controle de tokens.
 CLIENT_OS_NARRATIVE_MAX_CHARS = 2000
+
+# Caminho do arquivo de identidade unificada do Villa (P1.D - Identity Layer).
+# E prefixado ao system prompt de todos os modulos para garantir personalidade
+# e contexto WebXP consistentes. Se ausente, fallback gracioso para o prompt
+# original sem prefixo.
+IDENTITY_FILE_PATH = "prompts/system/webxp_identity.md"
+_identity_cache: str | None = None  # cache em memoria — arquivo so muda em deploy
 
 
 class BaseModule(ABC):
@@ -108,6 +116,7 @@ class BaseModule(ABC):
         system_override: str | None = None,
         model: str = "primary",
         client_slug: str | None = None,
+        conversation: list[dict] | None = None,
         **kwargs,
     ) -> dict:
         """
@@ -117,6 +126,9 @@ class BaseModule(ABC):
         Quando client_slug e passado, o system prompt e automaticamente
         enriquecido com o narrative do Client OS para este cliente
         (fatos, episodios, preferencias, pendencias, objetivos).
+
+        Quando conversation e passado, o historico de sessao (Working
+        Memory) e repassado ao Claude para manter contexto multi-turno.
 
         Se o Client OS estiver indisponivel ou o cliente nao tiver
         estado registrado, mantem comportamento original sem
@@ -128,11 +140,12 @@ class BaseModule(ABC):
         # Enriquecer com Client OS se cliente foi identificado
         system = await self._enrich_system_with_client_os(system, db, client_slug)
 
-        # Chamar Claude
+        # Chamar Claude — passa conversation se houver
         response = await self.claude.ask(
             message=message,
             system=system,
             model=model,
+            conversation=conversation,
             **kwargs,
         )
 
@@ -293,10 +306,7 @@ class BaseModule(ABC):
 
             # Truncar para controle de tokens
             if len(narrative) > CLIENT_OS_NARRATIVE_MAX_CHARS:
-                narrative = (
-                    narrative[:CLIENT_OS_NARRATIVE_MAX_CHARS]
-                    + "\n[...narrative truncado]"
-                )
+                narrative = narrative[:CLIENT_OS_NARRATIVE_MAX_CHARS] + "\n[...narrative truncado]"
 
             return f"{system}\n\n## Contexto do cliente\n{narrative}"
 
@@ -313,30 +323,68 @@ class BaseModule(ABC):
             return system
 
     async def _get_system_prompt(self, db: AsyncSession) -> str:
-        """Carrega system prompt: banco > arquivo > default."""
+        """
+        Carrega system prompt: banco > arquivo > default.
+        Prefixa automaticamente com a identidade WebXP (P1.D Identity Layer)
+        para garantir tom e contexto consistentes em todos os modulos.
+        """
         # Tentar do banco
         result = await db.execute(
             select(ModuleConfig.system_prompt).where(ModuleConfig.module == self.code)
         )
         prompt = result.scalar_one_or_none()
         if prompt:
-            return prompt
+            return self._prepend_identity(prompt)
 
         # Tentar do arquivo
         prompt_file = f"prompts/modules/{self.code.value}.md"
         try:
             with open(prompt_file) as f:
-                return f.read()
+                return self._prepend_identity(f.read())
         except FileNotFoundError:
             pass
 
         # Default genérico
-        return (
+        default = (
             f"Você é o Villa, módulo {self.name} ({self.code.value}). "
             f"{self.description} "
             "Você trabalha para a WebXP, agência de performance odontológica. "
             "Seja preciso, direto e use o tom profissional da WebXP."
         )
+        return self._prepend_identity(default)
+
+    def _prepend_identity(self, module_prompt: str) -> str:
+        """
+        Prefixa o system prompt do modulo com a identidade unificada do
+        Villa (WebXP), lida de prompts/system/webxp_identity.md.
+
+        Comportamento defensivo: se o arquivo nao existir ou nao puder ser
+        lido, retorna o prompt original sem prefixo. Nunca propaga excecao.
+
+        Usa cache em memoria — o arquivo so muda em deploy.
+        """
+        global _identity_cache
+
+        if _identity_cache is None:
+            try:
+                if os.path.exists(IDENTITY_FILE_PATH):
+                    with open(IDENTITY_FILE_PATH, encoding="utf-8") as f:
+                        _identity_cache = f.read().strip()
+                else:
+                    _identity_cache = ""  # marca como tentado
+                    logger.debug(
+                        "Identity Layer: arquivo %s nao encontrado. "
+                        "Modulos usarao prompt original sem prefixo de identidade.",
+                        IDENTITY_FILE_PATH,
+                    )
+            except Exception as e:
+                _identity_cache = ""
+                logger.debug("Identity Layer: erro lendo %s: %s", IDENTITY_FILE_PATH, e)
+
+        if not _identity_cache:
+            return module_prompt
+
+        return f"{_identity_cache}\n\n---\n\n{module_prompt}"
 
     async def _log_decision(
         self,

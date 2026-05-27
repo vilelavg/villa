@@ -48,6 +48,7 @@ TEST_REDIS_URL = os.getenv("TEST_REDIS_URL", "redis://localhost:6380/1")
 def event_loop_policy():
     """Política de event loop para a sessão — evita DeprecationWarning no Python 3.12."""
     import asyncio
+
     return asyncio.DefaultEventLoopPolicy()
 
 
@@ -148,6 +149,7 @@ async def auth_client(client: httpx.AsyncClient) -> httpx.AsyncClient:
 # MOCKS DE APIs EXTERNAS
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def mock_claude() -> Generator[AsyncMock, None, None]:
     default_response = MagicMock()
@@ -162,8 +164,15 @@ def mock_claude() -> Generator[AsyncMock, None, None]:
 @pytest.fixture
 def mock_kommo() -> Generator[MagicMock, None, None]:
     kommo_response = {
-        "leads": [{"id": 123456, "name": "Lead Teste", "status_id": 1,
-                   "pipeline_id": 1, "created_at": 1700000000}],
+        "leads": [
+            {
+                "id": 123456,
+                "name": "Lead Teste",
+                "status_id": 1,
+                "pipeline_id": 1,
+                "created_at": 1700000000,
+            }
+        ],
         "_page": 1,
         "_links": {"self": {"href": "/api/v4/leads"}},
     }
@@ -175,9 +184,17 @@ def mock_kommo() -> Generator[MagicMock, None, None]:
 @pytest.fixture
 def mock_meta() -> Generator[MagicMock, None, None]:
     meta_response = {
-        "data": [{"campaign_id": "120210000000001", "impressions": "10000",
-                  "clicks": "300", "spend": "250.00", "reach": "8500",
-                  "date_start": "2026-05-01", "date_stop": "2026-05-07"}],
+        "data": [
+            {
+                "campaign_id": "120210000000001",
+                "impressions": "10000",
+                "clicks": "300",
+                "spend": "250.00",
+                "reach": "8500",
+                "date_start": "2026-05-01",
+                "date_stop": "2026-05-07",
+            }
+        ],
         "paging": {"cursors": {"before": "abc", "after": "def"}},
     }
     with patch("integrations.meta.MetaClient._request", new_callable=AsyncMock) as mock:
@@ -188,37 +205,46 @@ def mock_meta() -> Generator[MagicMock, None, None]:
 @pytest.fixture
 def mock_google_calendar() -> Generator[MagicMock, None, None]:
     calendar_response = {
-        "items": [{"id": "event_teste_123", "summary": "Consulta - Dr. Linardi",
-                   "start": {"dateTime": "2026-06-01T10:00:00-03:00"},
-                   "end": {"dateTime": "2026-06-01T11:00:00-03:00"},
-                   "status": "confirmed"}]
+        "items": [
+            {
+                "id": "event_teste_123",
+                "summary": "Consulta - Dr. Linardi",
+                "start": {"dateTime": "2026-06-01T10:00:00-03:00"},
+                "end": {"dateTime": "2026-06-01T11:00:00-03:00"},
+                "status": "confirmed",
+            }
+        ]
     }
-    with patch("integrations.google_calendar.GoogleCalendarClient._request",
-               new_callable=AsyncMock) as mock:
+    with patch(
+        "integrations.google_calendar.GoogleCalendarClient._request", new_callable=AsyncMock
+    ) as mock:
         mock.return_value = calendar_response
         yield mock
 
 
 @pytest.fixture
 def mock_google_drive() -> Generator[MagicMock, None, None]:
-    with patch("integrations.google_drive.GoogleDriveClient._request",
-               new_callable=AsyncMock) as mock:
+    with patch(
+        "integrations.google_drive.GoogleDriveClient._request", new_callable=AsyncMock
+    ) as mock:
         mock.return_value = {"id": "file_123", "name": "roteiro_teste.docx"}
         yield mock
 
 
 @pytest.fixture
 def mock_whatsapp() -> Generator[MagicMock, None, None]:
-    with patch("integrations.whatsapp.WhatsAppClient._request",
-               new_callable=AsyncMock) as mock:
-        mock.return_value = {"messages": [{"id": "wamid.teste_123"}],
-                             "messaging_product": "whatsapp"}
+    with patch("integrations.whatsapp.WhatsAppClient._request", new_callable=AsyncMock) as mock:
+        mock.return_value = {
+            "messages": [{"id": "wamid.teste_123"}],
+            "messaging_product": "whatsapp",
+        }
         yield mock
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DADOS DE TESTE
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def client_slug() -> str:

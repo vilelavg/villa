@@ -1,0 +1,75 @@
+warning: in the working copy of 'tests/memory/client_os/conftest.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/tests/memory/client_os/conftest.py b/tests/memory/client_os/conftest.py[m
+[1mindex ba77e69..66eeda8 100644[m
+[1m--- a/tests/memory/client_os/conftest.py[m
+[1m+++ b/tests/memory/client_os/conftest.py[m
+[36m@@ -1,37 +1,16 @@[m
+ """[m
+ Fixtures do Client OS.[m
+ [m
+[31m-Assume que o conftest.py raiz do projeto já fornece um fixture `db`[m
+[31m-do tipo AsyncSession apontado a um banco PostgreSQL de teste (o padrão[m
+[31m-Villa). Os testes de `test_state.py` dependem de features PG-only[m
+[31m-(JSONB, ON CONFLICT) e não rodam em SQLite.[m
+[32m+[m[32mUsa o fixture `db_session` do conftest.py raiz do projeto (AsyncSession[m
+[32m+[m[32mPostgreSQL em villa_test_db, isolada por teste via savepoint+rollback).[m
+ [m
+[31m-Os testes de `test_narrative.py` são puros (sem DB) e rodam em qualquer[m
+[32m+[m[32mOs testes de `test_state.py` dependem de features PG-only (JSONB,[m
+[32m+[m[32mON CONFLICT) e nao rodam em SQLite.[m
+[32m+[m
+[32m+[m[32mOs testes de `test_narrative.py` sao puros (sem DB) e rodam em qualquer[m
+ ambiente.[m
+ """[m
+ [m
+[31m-# ⚠ DIVIDA TECNICA — fixture 'db' ausente[m
+[31m-# ════════════════════════════════════════════════════════════════════════════[m
+[31m-# 40 testes em test_state.py esperam fixture chamada 'db' (ex: 'def test_x(self, db, ...)'),[m
+[31m-# mas tests/conftest.py raiz fornece 'db_session', nao 'db'. Resultado: testes[m
+[31m-# caem em ERROR com 'fixture "db" not found'.[m
+[31m-#[m
+[31m-# Alias direto (async def db(db_session): return db_session) causa race condition[m
+[31m-# asyncpg ('cannot perform operation: another operation is in progress') porque[m
+[31m-# a fixture db_session usa savepoint com escopo function, e tentar referenciar[m
+[31m-# a mesma conexao por 2 nomes em testes consecutivos cria conflito.[m
+[31m-#[m
+[31m-# Solucao real (PR futura):[m
+[31m-#   1. Refatorar db_session pra usar pool de conexoes isoladas por teste[m
+[31m-#   2. OU renomear db_session -> db em todo o projeto (tests/conftest.py[m
+[31m-#      + todos os arquivos de teste que usam 'db_session')[m
+[31m-#   3. OU reescrever testes de test_state.py pra usar 'db_session' diretamente[m
+[31m-#[m
+[31m-# Status atual: 42 testes funcionais (test_narrative.py + alguns isolados),[m
+[31m-# 40 testes em ERROR. Validacao da Fase 1.A esta sendo feita por smoke tests[m
+[31m-# manuais e RAG end-to-end documentado na PR feat/client-os-phase-1a.[m
+[31m-# ════════════════════════════════════════════════════════════════════════════[m
+[31m-[m
+ from __future__ import annotations[m
+ [m
+ import pytest_asyncio[m
+[36m@@ -40,7 +19,7 @@[m [mfrom memory.client_os import ClientOS[m
+ [m
+ [m
+ @pytest_asyncio.fixture[m
+[31m-async def sample_client(db):[m
+[32m+[m[32masync def sample_client(db_session):[m
+     """[m
+     Cria um Client minimal com slug='test_client_os' e devolve o objeto.[m
+ [m
+[36m@@ -51,12 +30,12 @@[m [masync def sample_client(db):[m
+     from core.models import Client  # type: ignore[m
+ [m
+     client = Client(slug="test_client_os", name="Test Client OS")[m
+[31m-    db.add(client)[m
+[31m-    await db.flush()[m
+[32m+[m[32m    db_session.add(client)[m
+[32m+[m[32m    await db_session.flush()[m
+     return client[m
+ [m
+ [m
+ @pytest_asyncio.fixture[m
+[31m-async def client_os(db, sample_client):[m
+[32m+[m[32masync def client_os(db_session, sample_client):[m
+     """ClientOS instanciado e pronto para os testes."""[m
+[31m-    return await ClientOS.for_slug(db, sample_client.slug)[m
+[32m+[m[32m    return await ClientOS.for_slug(db_session, sample_client.slug)[m
