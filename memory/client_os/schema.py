@@ -16,6 +16,7 @@ narrativo dele é removido junto.
 Tipo de `client_id`: UUID (consistente com `clients.id` no schema base
 do Villa — ver db/migrations/001_initial_schema.sql).
 """
+
 from __future__ import annotations
 
 import uuid
@@ -50,6 +51,7 @@ except ImportError:  # pragma: no cover
 
 # ---------- client_state (singleton por cliente) ----------
 
+
 class ClientStateRow(Base):
     """Linha singleton por cliente. Mantém versão e summary narrativo compilado."""
 
@@ -63,9 +65,7 @@ class ClientStateRow(Base):
         unique=True,
         index=True,
     )
-    version: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=1, server_default="1"
-    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     summary_updated_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -82,6 +82,7 @@ class ClientStateRow(Base):
 
 
 # ---------- client_facts ----------
+
 
 class ClientFact(Base):
     """
@@ -123,14 +124,13 @@ class ClientFact(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "client_id", "category", "key", name="uq_client_facts_client_cat_key"
-        ),
+        UniqueConstraint("client_id", "category", "key", name="uq_client_facts_client_cat_key"),
         Index("ix_client_facts_client_category", "client_id", "category"),
     )
 
 
 # ---------- client_episodes ----------
+
 
 class ClientEpisode(Base):
     """
@@ -185,6 +185,7 @@ class ClientEpisode(Base):
 
 # ---------- client_preferences ----------
 
+
 class ClientPreference(Base):
     """
     Padrões observados sobre como o cliente se comporta / prefere coisas.
@@ -229,6 +230,7 @@ class ClientPreference(Base):
 
 # ---------- client_pending (open loops) ----------
 
+
 class ClientPendingItem(Base):
     """
     Open loops — coisas pendentes esperando alguém.
@@ -258,12 +260,8 @@ class ClientPendingItem(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    due_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    resolved_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    due_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         Index(
@@ -276,6 +274,7 @@ class ClientPendingItem(Base):
 
 
 # ---------- client_objectives ----------
+
 
 class ClientObjective(Base):
     """
@@ -301,9 +300,7 @@ class ClientObjective(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     target_metric: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     target_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    deadline: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     progress: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     # status ∈ {"active", "paused", "achieved", "abandoned"}
     status: Mapped[str] = mapped_column(
@@ -319,9 +316,7 @@ class ClientObjective(Base):
         onupdate=func.now(),
     )
 
-    __table_args__ = (
-        Index("ix_client_objectives_client_status", "client_id", "status"),
-    )
+    __table_args__ = (Index("ix_client_objectives_client_status", "client_id", "status"),)
 
 
 __all__ = [

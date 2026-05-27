@@ -5,6 +5,7 @@ Recebe o snapshot estruturado retornado por `ClientOS.snapshot()` e devolve
 texto markdown pronto pra ser injetado em prompts do Claude antes de qualquer
 ação. Mantém esse texto curto, hierárquico e fácil de consumir pelo LLM.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -114,9 +115,7 @@ def compile_narrative(snapshot: dict, *, max_episodes: int = 10) -> str:
                     if f.get("confidence", 1.0) >= 0.9
                     else f" (confiança {int(f['confidence'] * 100)}%)"
                 )
-                parts.append(
-                    f"- {f['key']}: {_format_fact_value(f.get('value'))}{conf_marker}"
-                )
+                parts.append(f"- {f['key']}: {_format_fact_value(f.get('value'))}{conf_marker}")
 
     # 2. Preferências observadas
     if preferences:
@@ -143,11 +142,7 @@ def compile_narrative(snapshot: dict, *, max_episodes: int = 10) -> str:
         parts.append("\n### Pendências abertas")
         for loop in loops[:10]:
             owner = loop.get("owner", "villa")
-            due = (
-                f" — vencimento {_humanize_when(loop['due_at'])}"
-                if loop.get("due_at")
-                else ""
-            )
+            due = f" — vencimento {_humanize_when(loop['due_at'])}" if loop.get("due_at") else ""
             parts.append(f"- [{owner}] {loop['title']}{due}")
 
     # 5. Histórico recente

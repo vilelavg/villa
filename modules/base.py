@@ -306,10 +306,7 @@ class BaseModule(ABC):
 
             # Truncar para controle de tokens
             if len(narrative) > CLIENT_OS_NARRATIVE_MAX_CHARS:
-                narrative = (
-                    narrative[:CLIENT_OS_NARRATIVE_MAX_CHARS]
-                    + "\n[...narrative truncado]"
-                )
+                narrative = narrative[:CLIENT_OS_NARRATIVE_MAX_CHARS] + "\n[...narrative truncado]"
 
             return f"{system}\n\n## Contexto do cliente\n{narrative}"
 

@@ -7,6 +7,7 @@ Cobre o comportamento de _prepend_identity() em BaseModule:
 3. Cache: arquivo lido uma vez, reusado em chamadas subsequentes
 4. Cache reset entre testes via fixture autouse
 """
+
 from __future__ import annotations
 
 import os
@@ -49,6 +50,7 @@ def fake_module():
 # Cenario 1: arquivo existe → prefixo aplicado
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestIdentityPrependedWhenFileExists:
     def test_identity_is_prepended(self, fake_module, tmp_path: Path):
         identity_content = "# Villa — Identidade WebXP\nEmpresa de performance odontologica."
@@ -63,9 +65,7 @@ class TestIdentityPrependedWhenFileExists:
         assert result.startswith(identity_content)
         assert "---" in result  # separador entre identity e module prompt
 
-    def test_separator_between_identity_and_module_prompt(
-        self, fake_module, tmp_path: Path
-    ):
+    def test_separator_between_identity_and_module_prompt(self, fake_module, tmp_path: Path):
         identity_file = tmp_path / "identity.md"
         identity_file.write_text("IDENTITY", encoding="utf-8")
 
@@ -83,6 +83,7 @@ class TestIdentityPrependedWhenFileExists:
 # Cenario 2: arquivo nao existe → retorna prompt original
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestIdentityAbsentReturnsOriginal:
     def test_missing_file_returns_module_prompt_unchanged(self, fake_module):
         nonexistent = "/tmp/does_not_exist_villa_identity_xyz.md"
@@ -93,9 +94,7 @@ class TestIdentityAbsentReturnsOriginal:
 
         assert result == "ORIGINAL_PROMPT"
 
-    def test_empty_identity_file_returns_module_prompt_unchanged(
-        self, fake_module, tmp_path: Path
-    ):
+    def test_empty_identity_file_returns_module_prompt_unchanged(self, fake_module, tmp_path: Path):
         identity_file = tmp_path / "identity.md"
         identity_file.write_text("   \n\t\n   ", encoding="utf-8")  # whitespace only
 
@@ -121,6 +120,7 @@ class TestIdentityAbsentReturnsOriginal:
 # ─────────────────────────────────────────────────────────────────────────────
 # Cenario 3: cache funciona — arquivo lido apenas 1x
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestIdentityCaching:
     def test_file_is_read_only_once(self, fake_module, tmp_path: Path):

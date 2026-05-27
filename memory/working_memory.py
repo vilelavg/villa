@@ -93,7 +93,9 @@ class WorkingMemory:
                 return []
             data = json.loads(raw)
             if not isinstance(data, list):
-                logger.debug("WM key %s contem tipo invalido (%s), retornando vazio", key, type(data))
+                logger.debug(
+                    "WM key %s contem tipo invalido (%s), retornando vazio", key, type(data)
+                )
                 return []
             # Renova TTL a cada leitura — sessao ativa nao expira
             await client.expire(key, WM_TTL_SECONDS)
@@ -175,6 +177,7 @@ working_memory = WorkingMemory()
 
 
 # ── Helpers de conveniencia ──
+
 
 async def load_session_history(user_id: str | None, session_id: str | None) -> list[dict[str, str]]:
     """

@@ -11,6 +11,7 @@ Fluxo típico:
     await os_.observe_preference("approvals", "...")
     await os_.open_loop("Aguardar resposta", owner="caio")
 """
+
 from __future__ import annotations
 
 import uuid
@@ -74,9 +75,7 @@ class ClientOS:
             raise ClientOSError("core.models.Client não encontrado") from e
 
         try:
-            result = await db.execute(
-                select(Client.id).where(Client.slug == client_slug)
-            )
+            result = await db.execute(select(Client.id).where(Client.slug == client_slug))
             client_id = result.scalar_one_or_none()
         except Exception as e:
             logger.error("client_os.for_slug: erro buscando cliente '%s': %s", client_slug, e)
@@ -135,18 +134,22 @@ class ClientOS:
             await self._bump_version()
             logger.info(
                 "client_os.upsert_fact: %s [%s.%s] conf=%.2f",
-                self.client_slug, category, key, confidence,
+                self.client_slug,
+                category,
+                key,
+                confidence,
             )
         except Exception as e:
             logger.error(
                 "client_os.upsert_fact erro %s/%s/%s: %s",
-                self.client_slug, category, key, e,
+                self.client_slug,
+                category,
+                key,
+                e,
             )
             raise ClientOSError("Erro ao upsert fato") from e
 
-    async def get_facts(
-        self, category: Optional[str] = None
-    ) -> list[dict[str, Any]]:
+    async def get_facts(self, category: Optional[str] = None) -> list[dict[str, Any]]:
         """Lista fatos do cliente, opcionalmente filtrando por category."""
         try:
             stmt = select(ClientFact).where(ClientFact.client_id == self.client_id)
@@ -167,9 +170,7 @@ class ClientOS:
                 for f in result.scalars().all()
             ]
         except Exception as e:
-            logger.error(
-                "client_os.get_facts erro %s/%s: %s", self.client_slug, category, e
-            )
+            logger.error("client_os.get_facts erro %s/%s: %s", self.client_slug, category, e)
             raise ClientOSError("Erro ao buscar fatos") from e
 
     # ---------- EPISÓDIOS ----------
@@ -211,13 +212,17 @@ class ClientOS:
             await self._bump_version()
             logger.info(
                 "client_os.record_episode: %s [%s] %s",
-                self.client_slug, episode_type, summary[:80],
+                self.client_slug,
+                episode_type,
+                summary[:80],
             )
             return episode.id
         except Exception as e:
             logger.error(
                 "client_os.record_episode erro %s/%s: %s",
-                self.client_slug, episode_type, e,
+                self.client_slug,
+                episode_type,
+                e,
             )
             raise ClientOSError("Erro ao registrar episódio") from e
 
@@ -232,9 +237,7 @@ class ClientOS:
             raise ValueError("limit deve ser > 0")
 
         try:
-            stmt = select(ClientEpisode).where(
-                ClientEpisode.client_id == self.client_id
-            )
+            stmt = select(ClientEpisode).where(ClientEpisode.client_id == self.client_id)
             if episode_type:
                 stmt = stmt.where(ClientEpisode.episode_type == episode_type)
             if since:
@@ -291,9 +294,7 @@ class ClientOS:
 
             if existing:
                 existing.evidence_count += 1
-                existing.confidence = min(
-                    1.0, existing.confidence + confidence_increment
-                )
+                existing.confidence = min(1.0, existing.confidence + confidence_increment)
                 existing.last_observed_at = datetime.now(timezone.utc)
             else:
                 self.db.add(
@@ -310,12 +311,16 @@ class ClientOS:
             await self._bump_version()
             logger.info(
                 "client_os.observe_preference: %s [%s] %s",
-                self.client_slug, topic, pattern[:60],
+                self.client_slug,
+                topic,
+                pattern[:60],
             )
         except Exception as e:
             logger.error(
                 "client_os.observe_preference erro %s/%s: %s",
-                self.client_slug, topic, e,
+                self.client_slug,
+                topic,
+                e,
             )
             raise ClientOSError("Erro ao observar preferência") from e
 
@@ -348,9 +353,7 @@ class ClientOS:
                 for p in result.scalars().all()
             ]
         except Exception as e:
-            logger.error(
-                "client_os.get_preferences erro %s: %s", self.client_slug, e
-            )
+            logger.error("client_os.get_preferences erro %s: %s", self.client_slug, e)
             raise ClientOSError("Erro ao buscar preferências") from e
 
     # ---------- PENDÊNCIAS (OPEN LOOPS) ----------
@@ -378,7 +381,9 @@ class ClientOS:
             await self._bump_version()
             logger.info(
                 "client_os.open_loop: %s [%s] %s",
-                self.client_slug, owner, title[:80],
+                self.client_slug,
+                owner,
+                title[:80],
             )
             return item.id
         except Exception as e:
@@ -412,20 +417,22 @@ class ClientOS:
             await self._bump_version()
             logger.info(
                 "client_os.close_loop: %s id=%s status=%s",
-                self.client_slug, loop_id, status,
+                self.client_slug,
+                loop_id,
+                status,
             )
         except ClientOSError:
             raise
         except Exception as e:
             logger.error(
                 "client_os.close_loop erro %s id=%s: %s",
-                self.client_slug, loop_id, e,
+                self.client_slug,
+                loop_id,
+                e,
             )
             raise ClientOSError("Erro ao fechar pendência") from e
 
-    async def open_loops(
-        self, owner: Optional[str] = None
-    ) -> list[dict[str, Any]]:
+    async def open_loops(self, owner: Optional[str] = None) -> list[dict[str, Any]]:
         """Lista pendências abertas, ordenadas por due_at (nulls last)."""
         try:
             stmt = select(ClientPendingItem).where(
@@ -483,17 +490,13 @@ class ClientOS:
             self.db.add(obj)
             await self.db.flush()
             await self._bump_version()
-            logger.info(
-                "client_os.add_objective: %s [%s]", self.client_slug, title
-            )
+            logger.info("client_os.add_objective: %s [%s]", self.client_slug, title)
             return obj.id
         except Exception as e:
             logger.error("client_os.add_objective erro %s: %s", self.client_slug, e)
             raise ClientOSError("Erro ao adicionar objetivo") from e
 
-    async def update_objective_progress(
-        self, objective_id: int, progress_patch: dict
-    ) -> None:
+    async def update_objective_progress(self, objective_id: int, progress_patch: dict) -> None:
         """Faz merge de progress_patch no progress atual do objetivo."""
         if not isinstance(progress_patch, dict):
             raise ValueError("progress_patch deve ser dict")
@@ -519,14 +522,17 @@ class ClientOS:
             await self._bump_version()
             logger.info(
                 "client_os.update_objective_progress %s id=%s",
-                self.client_slug, objective_id,
+                self.client_slug,
+                objective_id,
             )
         except ClientOSError:
             raise
         except Exception as e:
             logger.error(
                 "client_os.update_objective_progress erro %s/%s: %s",
-                self.client_slug, objective_id, e,
+                self.client_slug,
+                objective_id,
+                e,
             )
             raise ClientOSError("Erro ao atualizar progresso") from e
 
@@ -555,14 +561,18 @@ class ClientOS:
             await self._bump_version()
             logger.info(
                 "client_os.set_objective_status: %s id=%s -> %s",
-                self.client_slug, objective_id, status,
+                self.client_slug,
+                objective_id,
+                status,
             )
         except ClientOSError:
             raise
         except Exception as e:
             logger.error(
                 "client_os.set_objective_status erro %s/%s: %s",
-                self.client_slug, objective_id, e,
+                self.client_slug,
+                objective_id,
+                e,
             )
             raise ClientOSError("Erro ao mudar status de objetivo") from e
 
@@ -598,9 +608,7 @@ class ClientOS:
                 for o in result.scalars().all()
             ]
         except Exception as e:
-            logger.error(
-                "client_os.active_objectives erro %s: %s", self.client_slug, e
-            )
+            logger.error("client_os.active_objectives erro %s: %s", self.client_slug, e)
             raise ClientOSError("Erro ao listar objetivos ativos") from e
 
     # ---------- SNAPSHOT + NARRATIVE ----------
@@ -667,7 +675,8 @@ class ClientOS:
         except Exception as e:
             logger.warning(
                 "client_os._bump_version %s erro (não-crítico): %s",
-                self.client_slug, e,
+                self.client_slug,
+                e,
             )
 
 

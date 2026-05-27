@@ -142,7 +142,8 @@ class M07Retroalimentacao(BaseModule):
                     won=won,
                     avg_ticket=f"{avg_ticket:,.2f}",
                     lost=lost,
-                    loss_reasons="\n".join(f"- {r}" for r in loss_reasons[:10]) or "nenhum registrado",
+                    loss_reasons="\n".join(f"- {r}" for r in loss_reasons[:10])
+                    or "nenhum registrado",
                     winning_campaigns=", ".join(set(winning_utms)) or "sem dados UTM",
                     losing_campaigns=", ".join(set(losing_utms)) or "sem dados UTM",
                     memory_context=memory["prompt_injection"],

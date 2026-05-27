@@ -8,6 +8,7 @@ Cobre:
 - compile_narrative: estado vazio, com fatos, com episódios, marcadores de
   confidence baixa, marcadores de outcome, ordenação por categoria.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,7 @@ from memory.client_os.narrative import (
 
 
 # ---------- _humanize_when ----------
+
 
 class TestHumanizeWhen:
     def test_none_returns_placeholder(self):
@@ -80,6 +82,7 @@ class TestHumanizeWhen:
 
 # ---------- _format_fact_value ----------
 
+
 class TestFormatFactValue:
     def test_none(self):
         assert _format_fact_value(None) == "—"
@@ -116,6 +119,7 @@ class TestFormatFactValue:
 
 # ---------- _outcome_marker ----------
 
+
 class TestOutcomeMarker:
     def test_positive(self):
         assert _outcome_marker("positive") == " ✓"
@@ -137,6 +141,7 @@ class TestOutcomeMarker:
 
 
 # ---------- compile_narrative ----------
+
 
 class TestCompileNarrative:
     def test_empty_snapshot_signals_explicitly(self):
@@ -422,6 +427,7 @@ class TestCompileNarrative:
 
 
 # ---------- Sanidade do import ----------
+
 
 class TestPublicAPI:
     def test_compile_narrative_is_importable_from_package(self):

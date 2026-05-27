@@ -29,8 +29,8 @@ from core.models import KnowledgeDocument, KnowledgeEmbedding
 logger = logging.getLogger(__name__)
 
 # ── Configurações de chunking ──
-CHUNK_SIZE = 500          # Caracteres por chunk
-CHUNK_OVERLAP = 75        # Sobreposição entre chunks
+CHUNK_SIZE = 500  # Caracteres por chunk
+CHUNK_OVERLAP = 75  # Sobreposição entre chunks
 EMBEDDING_DIMENSION = settings.voyage_dimension  # 1024 (Voyage default)
 
 
@@ -152,7 +152,9 @@ class EmbeddingService:
         await self.db.flush()
         logger.info(
             "Indexado document_id=%s | chunks=%d | dim=%d",
-            document_id, len(chunks), EMBEDDING_DIMENSION,
+            document_id,
+            len(chunks),
+            EMBEDDING_DIMENSION,
         )
         return len(chunks)
 
@@ -329,7 +331,7 @@ class EmbeddingService:
                         )
                         space_idx = overlap_text.find(" ")
                         if space_idx > 0:
-                            overlap_text = overlap_text[space_idx + 1:]
+                            overlap_text = overlap_text[space_idx + 1 :]
                         current_chunk = f"{overlap_text}\n\n{para}".strip()
                     else:
                         current_chunk = para
@@ -395,10 +397,11 @@ class EmbeddingService:
 
         # Processa em batches (Voyage aceita até 1000 itens/request)
         import asyncio
+
         loop = asyncio.get_event_loop()
 
         for i in range(0, len(texts), batch_size):
-            batch = list(texts[i:i + batch_size])
+            batch = list(texts[i : i + batch_size])
 
             # SDK Voyage é síncrono — rodar em executor pra não bloquear o loop
             result = await loop.run_in_executor(

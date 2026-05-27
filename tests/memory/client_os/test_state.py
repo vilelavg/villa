@@ -14,6 +14,7 @@ Cobre:
 Requer fixture `db_session` (AsyncSession PostgreSQL) do conftest raiz do projeto.
 Usa features PG-only (JSONB, ON CONFLICT) e não roda em SQLite.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -30,6 +31,7 @@ pytestmark = pytest.mark.asyncio
 
 # ---------- Resolução por slug ----------
 
+
 class TestClientResolution:
     async def test_for_slug_resolves_existing(self, db_session, sample_client):
         os_ = await ClientOS.for_slug(db_session, sample_client.slug)
@@ -43,6 +45,7 @@ class TestClientResolution:
 
 # ---------- Fatos ----------
 
+
 class TestFacts:
     async def test_upsert_simple_value(self, client_os):
         await client_os.upsert_fact("owner_profile", "risk_tolerance", "conservative")
@@ -53,18 +56,14 @@ class TestFacts:
         assert facts[0]["confidence"] == 1.0
 
     async def test_upsert_dict_value(self, client_os):
-        await client_os.upsert_fact(
-            "budget", "monthly", {"amount": 5000, "currency": "BRL"}
-        )
+        await client_os.upsert_fact("budget", "monthly", {"amount": 5000, "currency": "BRL"})
         facts = await client_os.get_facts(category="budget")
         assert len(facts) == 1
         assert facts[0]["value"] == {"amount": 5000, "currency": "BRL"}
 
     async def test_upsert_overwrites_existing(self, client_os):
         await client_os.upsert_fact("specialty_focus", "primary", "implantes")
-        await client_os.upsert_fact(
-            "specialty_focus", "primary", "ortodontia", confidence=0.7
-        )
+        await client_os.upsert_fact("specialty_focus", "primary", "ortodontia", confidence=0.7)
         facts = await client_os.get_facts(category="specialty_focus")
         assert len(facts) == 1
         assert facts[0]["value"] == "ortodontia"
@@ -87,6 +86,7 @@ class TestFacts:
 
 # ---------- Episódios ----------
 
+
 class TestEpisodes:
     async def test_record_and_retrieve(self, client_os):
         eid = await client_os.record_episode(
@@ -101,12 +101,8 @@ class TestEpisodes:
 
     async def test_ordering_is_desc_by_occurred_at(self, client_os):
         now = datetime.now(timezone.utc)
-        await client_os.record_episode(
-            "older", "antigo", occurred_at=now - timedelta(days=3)
-        )
-        await client_os.record_episode(
-            "newer", "novo", occurred_at=now - timedelta(hours=1)
-        )
+        await client_os.record_episode("older", "antigo", occurred_at=now - timedelta(days=3))
+        await client_os.record_episode("newer", "novo", occurred_at=now - timedelta(hours=1))
         eps = await client_os.recent_episodes()
         assert [e["type"] for e in eps] == ["newer", "older"]
 
@@ -119,9 +115,7 @@ class TestEpisodes:
 
     async def test_filter_by_since(self, client_os):
         now = datetime.now(timezone.utc)
-        await client_os.record_episode(
-            "old", "antigo", occurred_at=now - timedelta(days=10)
-        )
+        await client_os.record_episode("old", "antigo", occurred_at=now - timedelta(days=10))
         await client_os.record_episode("recent", "recente", occurred_at=now)
         cutoff = now - timedelta(days=1)
         eps = await client_os.recent_episodes(since=cutoff)
@@ -154,6 +148,7 @@ class TestEpisodes:
 
 # ---------- Preferências ----------
 
+
 class TestPreferences:
     async def test_first_observation_creates_with_confidence_05(self, client_os):
         await client_os.observe_preference("approvals", "aprova só após 3 opções")
@@ -164,9 +159,7 @@ class TestPreferences:
 
     async def test_repeated_observation_increments(self, client_os):
         for _ in range(3):
-            await client_os.observe_preference(
-                "copy_style", "responde melhor a copy emocional"
-            )
+            await client_os.observe_preference("copy_style", "responde melhor a copy emocional")
         prefs = await client_os.get_preferences(min_confidence=0.0)
         assert len(prefs) == 1
         assert prefs[0]["evidence_count"] == 3
@@ -190,20 +183,17 @@ class TestPreferences:
     async def test_filter_by_topic(self, client_os):
         await client_os.observe_preference("approvals", "x")
         await client_os.observe_preference("copy_style", "y")
-        prefs = await client_os.get_preferences(
-            topic="approvals", min_confidence=0.0
-        )
+        prefs = await client_os.get_preferences(topic="approvals", min_confidence=0.0)
         assert len(prefs) == 1
         assert prefs[0]["topic"] == "approvals"
 
 
 # ---------- Open Loops ----------
 
+
 class TestOpenLoops:
     async def test_open_creates_loop(self, client_os):
-        lid = await client_os.open_loop(
-            "Aguardar resposta sobre criativo", owner="caio"
-        )
+        lid = await client_os.open_loop("Aguardar resposta sobre criativo", owner="caio")
         loops = await client_os.open_loops()
         assert len(loops) == 1
         assert loops[0]["id"] == lid
@@ -246,6 +236,7 @@ class TestOpenLoops:
 
 
 # ---------- Objetivos ----------
+
 
 class TestObjectives:
     async def test_add_and_list(self, client_os):
@@ -299,6 +290,7 @@ class TestObjectives:
 
 # ---------- Snapshot ----------
 
+
 class TestSnapshot:
     async def test_empty_snapshot(self, client_os):
         snap = await client_os.snapshot()
@@ -327,6 +319,7 @@ class TestSnapshot:
 
 # ---------- Bump de version ----------
 
+
 class TestVersionBumping:
     async def _get_version(self, db_session, client_id):
         result = await db_session.execute(
@@ -350,6 +343,7 @@ class TestVersionBumping:
 
 
 # ---------- Narrative integration ----------
+
 
 class TestNarrativeIntegration:
     async def test_narrative_returns_string(self, client_os):

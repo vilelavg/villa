@@ -1,4 +1,4 @@
-﻿"""
+"""
 Client OS — Memória episódica e estado narrativo vivo por cliente.
 
 Camada acima do `memory/feedback_loop.py` (que faz RAG semântico sobre
@@ -15,6 +15,7 @@ Uso típico:
     narrative = await os_.narrative()
     await os_.record_episode("campaign_paused", "Pausei X por CPL alto", outcome="positive")
 """
+
 from .exceptions import ClientNotFoundError, ClientOSError
 from .narrative import compile_narrative
 from .state import ClientOS

@@ -91,7 +91,7 @@ class M10Smooth(BaseModule):
                     member_name=member_name,
                     question=message,
                     knowledge_context=knowledge_text,
-            ),
+                ),
                 db=db,
                 system_override=SYSTEM_PROMPT,
             )

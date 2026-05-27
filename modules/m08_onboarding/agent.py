@@ -152,7 +152,9 @@ class M08Onboarding(BaseModule):
             if sla_alerts:
                 msg += "\n\n⚠️ **Atrasos:**\n" + "\n".join(f"  • {a}" for a in sla_alerts)
             if analysis:
-                msg += f"\n\n💡 **Análise do mapeamento:**\n{analysis.get('recommended_approach', '')}"
+                msg += (
+                    f"\n\n💡 **Análise do mapeamento:**\n{analysis.get('recommended_approach', '')}"
+                )
 
             await feedback_loop.record_decision(
                 module=self.code,

@@ -17,6 +17,7 @@ Estes testes usam um cliente Redis mockado — nao requerem Redis real
 para a maioria, e usam Redis real (do docker-compose.test.yml) para
 testes de integracao basicos.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -39,6 +40,7 @@ pytestmark = pytest.mark.asyncio
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers para mockar cliente Redis
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class _FakeRedis:
     """Implementacao em memoria do subset usado por WorkingMemory."""
@@ -91,6 +93,7 @@ def wm(fake_redis):
 # Cenario 1: get() sem historico
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestGetEmpty:
     async def test_returns_empty_list_when_no_history(self, wm):
         result = await wm.get("user_1", "session_1")
@@ -108,6 +111,7 @@ class TestGetEmpty:
 # ─────────────────────────────────────────────────────────────────────────────
 # Cenario 2: append() + get() round-trip
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestAppendAndGet:
     async def test_append_then_get_returns_message(self, wm):
@@ -153,6 +157,7 @@ class TestAppendAndGet:
 # Cenario 3: validacoes de input
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestInputValidation:
     async def test_invalid_role_rejected(self, wm):
         result = await wm.append("user_1", "session_1", "invalid_role", "X")
@@ -182,6 +187,7 @@ class TestInputValidation:
 # Cenario 4: truncamento ao exceder WM_MAX_MESSAGES
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestTruncation:
     async def test_messages_beyond_limit_are_truncated(self, wm):
         for i in range(WM_MAX_MESSAGES + 5):
@@ -204,6 +210,7 @@ class TestTruncation:
 # Cenario 5: clear()
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestClear:
     async def test_clear_removes_history(self, wm):
         await wm.append("user_1", "session_1", "user", "X")
@@ -221,6 +228,7 @@ class TestClear:
 # ─────────────────────────────────────────────────────────────────────────────
 # Cenario 6: Redis indisponivel → falha silenciosa
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestRedisUnavailable:
     async def test_get_returns_empty_when_redis_unavailable(self):
@@ -250,6 +258,7 @@ class TestRedisUnavailable:
 # Cenario 7: dados corrompidos no Redis
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestCorruptedData:
     async def test_non_json_data_returns_empty(self, wm, fake_redis):
         fake_redis.store["wm:u1:s1"] = "isto nao eh json"
@@ -265,6 +274,7 @@ class TestCorruptedData:
 # ─────────────────────────────────────────────────────────────────────────────
 # Cenario 8: helpers de alto nivel
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestHelpers:
     async def test_load_session_history_returns_empty_for_missing_ids(self):
@@ -286,6 +296,7 @@ class TestHelpers:
 # Cenario 9: chave Redis no formato esperado
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestKeyFormat:
     def test_key_uses_expected_prefix(self):
         wm_instance = WorkingMemory()
@@ -297,6 +308,7 @@ class TestKeyFormat:
 # ─────────────────────────────────────────────────────────────────────────────
 # Cenario 10: TTL renovado a cada leitura
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestTTLRenewal:
     async def test_ttl_renewed_on_get(self, wm, fake_redis):
