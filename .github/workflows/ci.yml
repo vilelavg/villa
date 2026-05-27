@@ -133,6 +133,10 @@ jobs:
           timeout 30 bash -c 'until nc -z localhost 6380; do sleep 1; done'
           echo "Serviços prontos."
 
+      - name: Rodar migrations no banco de testes
+        run: |
+          alembic upgrade head
+
       - name: Rodar testes com cobertura
         run: |
           pytest \
