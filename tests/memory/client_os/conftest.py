@@ -9,6 +9,29 @@ Villa). Os testes de `test_state.py` dependem de features PG-only
 Os testes de `test_narrative.py` são puros (sem DB) e rodam em qualquer
 ambiente.
 """
+
+# ⚠ DIVIDA TECNICA — fixture 'db' ausente
+# ════════════════════════════════════════════════════════════════════════════
+# 40 testes em test_state.py esperam fixture chamada 'db' (ex: 'def test_x(self, db, ...)'),
+# mas tests/conftest.py raiz fornece 'db_session', nao 'db'. Resultado: testes
+# caem em ERROR com 'fixture "db" not found'.
+#
+# Alias direto (async def db(db_session): return db_session) causa race condition
+# asyncpg ('cannot perform operation: another operation is in progress') porque
+# a fixture db_session usa savepoint com escopo function, e tentar referenciar
+# a mesma conexao por 2 nomes em testes consecutivos cria conflito.
+#
+# Solucao real (PR futura):
+#   1. Refatorar db_session pra usar pool de conexoes isoladas por teste
+#   2. OU renomear db_session -> db em todo o projeto (tests/conftest.py
+#      + todos os arquivos de teste que usam 'db_session')
+#   3. OU reescrever testes de test_state.py pra usar 'db_session' diretamente
+#
+# Status atual: 42 testes funcionais (test_narrative.py + alguns isolados),
+# 40 testes em ERROR. Validacao da Fase 1.A esta sendo feita por smoke tests
+# manuais e RAG end-to-end documentado na PR feat/client-os-phase-1a.
+# ════════════════════════════════════════════════════════════════════════════
+
 from __future__ import annotations
 
 import pytest_asyncio

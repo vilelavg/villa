@@ -145,7 +145,7 @@ class EmbeddingService:
                 text(
                     "UPDATE knowledge_embeddings "
                     "SET embedding = CAST(:vec AS vector) "
-                    "WHERE id = :id"
+                    "WHERE id = CAST(:id AS UUID)"
                 ).bindparams(vec=vec_str, id=entry.id)
             )
 
