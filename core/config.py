@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     anthropic_max_tokens: int = 4096
     anthropic_temperature: float = 0.3
 
+    # ── Voyage AI (embeddings) ──
+    voyage_api_key: str = ""
+    voyage_model: str = "voyage-4-large"
+    voyage_dimension: int = 1024
+    voyage_max_retries: int = 3
+    voyage_batch_size: int = 128
+
     # ── Kommo CRM ──
     kommo_api_token: str = ""
     kommo_account_url: str = ""

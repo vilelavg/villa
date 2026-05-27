@@ -1,45 +1,83 @@
 """
-Villa — Serviço de Embeddings
+Villa — Serviço de Embeddings (Voyage AI)
 Vetorização de documentos para busca semântica (RAG).
 Usa pgvector no PostgreSQL para armazenamento e busca por similaridade.
 
-O Villa usa embeddings para:
-    - Buscar documentos relevantes na base de conhecimento (M13)
-    - Encontrar roteiros similares a um briefing
-    - Identificar perguntas parecidas já respondidas
-    - Conectar transcrições de reuniões a contextos de clientes
+ATUALIZAÇÃO (2026-05-26): Substituído backend hash-based fake por Voyage AI.
+- Modelo: voyage-4-large (multilíngue, melhor para português)
+- Dimensão: 1024 (default Voyage, schema vector(1024))
+- Input types: 'document' na indexação, 'query' na busca
+- Free tier: 200M tokens grátis nos primeiros 3 meses
+
+A interface pública é a mesma da versão anterior — módulos consumidores
+(knowledge_base, feedback_loop) não precisam mudar.
 """
 
+from __future__ import annotations
+
+import logging
+from typing import Sequence
 from uuid import uuid4
 
+import voyageai
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from core.models import KnowledgeDocument, KnowledgeEmbedding
 
-# ── Configurações ──
-CHUNK_SIZE = 500  # Caracteres por chunk
-CHUNK_OVERLAP = 75  # Sobreposição entre chunks
-EMBEDDING_DIMENSION = 1536  # Dimensão do vetor (depende do modelo)
+logger = logging.getLogger(__name__)
+
+# ── Configurações de chunking ──
+CHUNK_SIZE = 500          # Caracteres por chunk
+CHUNK_OVERLAP = 75        # Sobreposição entre chunks
+EMBEDDING_DIMENSION = settings.voyage_dimension  # 1024 (Voyage default)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Cliente Voyage (singleton)
+# ══════════════════════════════════════════════════════════════════════════════
+class _VoyageClientHolder:
+    """Wrapper que cria o client Voyage só quando precisamos (lazy init)."""
+
+    _client: voyageai.Client | None = None
+
+    @classmethod
+    def get(cls) -> voyageai.Client:
+        if cls._client is None:
+            if not settings.voyage_api_key:
+                raise RuntimeError(
+                    "VOYAGE_API_KEY não configurada no .env. "
+                    "Pegue a key em https://www.voyageai.com/ e adicione ao .env."
+                )
+            cls._client = voyageai.Client(
+                api_key=settings.voyage_api_key,
+                max_retries=settings.voyage_max_retries,
+            )
+            logger.info(
+                "Voyage client inicializado | modelo=%s | dim=%d",
+                settings.voyage_model,
+                settings.voyage_dimension,
+            )
+        return cls._client
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Serviço principal
+# ══════════════════════════════════════════════════════════════════════════════
 class EmbeddingService:
     """
     Gerencia embeddings vetoriais para busca semântica.
 
     Pipeline:
         1. Documento é dividido em chunks
-        2. Cada chunk é vetorizado (embedding)
+        2. Cada chunk é vetorizado via Voyage AI (input_type='document')
         3. Embeddings são armazenados no pgvector
-        4. Busca: query é vetorizada → busca por similaridade coseno
+        4. Busca: query é vetorizada (input_type='query') → busca por similaridade coseno
 
     Uso:
         emb = EmbeddingService(db)
-
-        # Indexar um documento
         await emb.index_document(doc_id, "Conteúdo do documento...")
-
-        # Buscar por similaridade
         results = await emb.search("como tratar implante que quebrou?", limit=5)
     """
 
@@ -58,7 +96,7 @@ class EmbeddingService:
         chunk_overlap: int = CHUNK_OVERLAP,
     ) -> int:
         """
-        Divide um documento em chunks e gera embeddings para cada um.
+        Divide um documento em chunks e gera embeddings via Voyage AI.
 
         Args:
             document_id: ID do KnowledgeDocument
@@ -69,15 +107,17 @@ class EmbeddingService:
         Returns:
             Número de chunks indexados
         """
-        # Limpar embeddings antigos deste documento
+        # Limpar embeddings antigos deste documento (re-indexação)
         await self.db.execute(
             delete(KnowledgeEmbedding).where(KnowledgeEmbedding.document_id == document_id)
         )
 
         # Dividir em chunks
         chunks = self._split_into_chunks(content, chunk_size, chunk_overlap)
+        if not chunks:
+            return 0
 
-        # Atualizar chunks no documento
+        # Atualizar chunks no documento (campo JSON)
         doc_result = await self.db.execute(
             select(KnowledgeDocument).where(KnowledgeDocument.id == document_id)
         )
@@ -85,8 +125,8 @@ class EmbeddingService:
         if doc:
             doc.chunks = [{"text": c, "index": i} for i, c in enumerate(chunks)]
 
-        # Gerar embeddings para cada chunk
-        embeddings = await self._generate_embeddings([c for c in chunks])
+        # Gerar embeddings via Voyage (em batches)
+        embeddings = await self._embed_texts(chunks, input_type="document")
 
         # Salvar no banco
         for i, (chunk_text, embedding_vector) in enumerate(zip(chunks, embeddings)):
@@ -96,19 +136,24 @@ class EmbeddingService:
                 chunk_index=i,
                 chunk_text=chunk_text,
             )
-            # Setar o vetor via SQL raw (pgvector)
             self.db.add(entry)
             await self.db.flush()
 
-            # Atualizar o embedding via SQL direto (pgvector requer formato especial)
+            # Setar o vetor via SQL raw (pgvector aceita texto no formato '[v1,v2,...]')
+            vec_str = "[" + ",".join(str(v) for v in embedding_vector) + "]"
             await self.db.execute(
-                text("UPDATE knowledge_embeddings SET embedding = :vec WHERE id = :id").bindparams(
-                    vec=str(embedding_vector),
-                    id=entry.id,
-                )
+                text(
+                    "UPDATE knowledge_embeddings "
+                    "SET embedding = CAST(:vec AS vector) "
+                    "WHERE id = CAST(:id AS UUID)"
+                ).bindparams(vec=vec_str, id=entry.id)
             )
 
         await self.db.flush()
+        logger.info(
+            "Indexado document_id=%s | chunks=%d | dim=%d",
+            document_id, len(chunks), EMBEDDING_DIMENSION,
+        )
         return len(chunks)
 
     async def index_text(
@@ -179,21 +224,17 @@ class EmbeddingService:
         Returns:
             Lista de chunks relevantes com score de similaridade
         """
-        # Gerar embedding da query
-        query_embeddings = await self._generate_embeddings([query])
+        # Vetoriza query (input_type='query' → Voyage usa prompt otimizado pra busca)
+        query_embeddings = await self._embed_texts([query], input_type="query")
         if not query_embeddings:
             return []
-
         query_vector = query_embeddings[0]
-
-        # Busca via pgvector (operador <=> para distância coseno)
-        # Distância coseno: 0 = idêntico, 2 = oposto
-        # Similaridade = 1 - distância
-        # Converter vetor para string no formato pgvector: '[0.1, 0.2, ...]'
         query_vec_str = "[" + ",".join(str(v) for v in query_vector) + "]"
 
+        # Busca via pgvector (operador <=> = distância coseno; 0=idêntico, 2=oposto)
+        # Similaridade = 1 - distância
         sql = """
-            SELECT 
+            SELECT
                 ke.id,
                 ke.document_id,
                 ke.chunk_index,
@@ -208,7 +249,7 @@ class EmbeddingService:
             WHERE 1 - (ke.embedding <=> CAST(:query_vec AS vector)) > :threshold
         """
 
-        params = {
+        params: dict = {
             "query_vec": query_vec_str,
             "threshold": similarity_threshold,
         }
@@ -248,7 +289,7 @@ class EmbeddingService:
 
     def _split_into_chunks(
         self,
-        text: str,
+        full_text: str,
         chunk_size: int,
         overlap: int,
     ) -> list[str]:
@@ -258,12 +299,11 @@ class EmbeddingService:
         Tenta quebrar em fronteiras naturais (parágrafos, frases)
         ao invés de cortar no meio de palavras.
         """
-        if len(text) <= chunk_size:
-            return [text.strip()] if text.strip() else []
+        if len(full_text) <= chunk_size:
+            return [full_text.strip()] if full_text.strip() else []
 
-        chunks = []
-        # Primeiro, dividir por parágrafos
-        paragraphs = text.split("\n\n")
+        chunks: list[str] = []
+        paragraphs = full_text.split("\n\n")
 
         current_chunk = ""
         for para in paragraphs:
@@ -271,35 +311,29 @@ class EmbeddingService:
             if not para:
                 continue
 
-            # Se o parágrafo cabe no chunk atual
             if len(current_chunk) + len(para) + 2 <= chunk_size:
                 current_chunk = f"{current_chunk}\n\n{para}".strip()
             else:
-                # Salvar chunk atual
                 if current_chunk:
                     chunks.append(current_chunk)
 
-                # Se o parágrafo é maior que chunk_size, dividir por frases
                 if len(para) > chunk_size:
                     sentence_chunks = self._split_by_sentences(para, chunk_size, overlap)
                     chunks.extend(sentence_chunks)
                     current_chunk = ""
                 else:
-                    # Começar novo chunk com overlap
                     if chunks and overlap > 0:
                         last_chunk = chunks[-1]
                         overlap_text = (
                             last_chunk[-overlap:] if len(last_chunk) > overlap else last_chunk
                         )
-                        # Encontrar início de palavra
                         space_idx = overlap_text.find(" ")
                         if space_idx > 0:
-                            overlap_text = overlap_text[space_idx + 1 :]
+                            overlap_text = overlap_text[space_idx + 1:]
                         current_chunk = f"{overlap_text}\n\n{para}".strip()
                     else:
                         current_chunk = para
 
-        # Último chunk
         if current_chunk:
             chunks.append(current_chunk)
 
@@ -307,16 +341,16 @@ class EmbeddingService:
 
     def _split_by_sentences(
         self,
-        text: str,
+        full_text: str,
         chunk_size: int,
         overlap: int,
     ) -> list[str]:
         """Divide texto grande por frases quando parágrafos são maiores que chunk_size."""
         import re
 
-        sentences = re.split(r"(?<=[.!?])\s+", text)
+        sentences = re.split(r"(?<=[.!?])\s+", full_text)
 
-        chunks = []
+        chunks: list[str] = []
         current = ""
 
         for sent in sentences:
@@ -333,61 +367,59 @@ class EmbeddingService:
         return chunks
 
     # ═══════════════════════════════════════════════════
-    # GERAÇÃO DE EMBEDDINGS
+    # GERAÇÃO DE EMBEDDINGS VIA VOYAGE AI
     # ═══════════════════════════════════════════════════
 
-    async def _generate_embeddings(self, texts: list[str]) -> list[list[float]]:
+    async def _embed_texts(
+        self,
+        texts: Sequence[str],
+        input_type: str = "document",
+    ) -> list[list[float]]:
         """
-        Gera embeddings para uma lista de textos.
+        Gera embeddings para uma lista de textos via Voyage AI.
 
-        Estratégia: usa o Claude para gerar representações semânticas
-        que são depois convertidas em vetores numéricos.
+        Args:
+            texts: Lista de textos a vetorizar
+            input_type: 'document' ao indexar, 'query' ao buscar.
+                        Voyage usa prompts internos diferentes pra otimizar cada caso.
 
-        Nota: Em produção, considerar usar um modelo de embeddings
-        dedicado (como Voyage AI ou OpenAI text-embedding-3-small)
-        para melhor custo-benefício. Por ora, usamos uma abordagem
-        baseada em hash semântico que funciona com pgvector.
+        Returns:
+            Lista de vetores (cada vetor é lista de floats com dim=voyage_dimension)
         """
+        if not texts:
+            return []
 
-        embeddings = []
-        for text in texts:
-            # Gerar um vetor determinístico baseado no conteúdo
-            # Em produção, substituir por chamada a modelo de embeddings real
-            embedding = self._text_to_vector(text)
-            embeddings.append(embedding)
+        client = _VoyageClientHolder.get()
+        batch_size = settings.voyage_batch_size
+        all_embeddings: list[list[float]] = []
 
-        return embeddings
+        # Processa em batches (Voyage aceita até 1000 itens/request)
+        import asyncio
+        loop = asyncio.get_event_loop()
 
-    def _text_to_vector(self, text: str, dimensions: int = EMBEDDING_DIMENSION) -> list[float]:
-        """
-        Converte texto em vetor numérico.
+        for i in range(0, len(texts), batch_size):
+            batch = list(texts[i:i + batch_size])
 
-        Implementação inicial: hash-based embedding.
-        TODO: Substituir por modelo de embeddings real (Voyage AI, OpenAI, etc.)
-        quando estiver em produção para qualidade semântica real.
+            # SDK Voyage é síncrono — rodar em executor pra não bloquear o loop
+            result = await loop.run_in_executor(
+                None,
+                lambda b=batch: client.embed(
+                    texts=b,
+                    model=settings.voyage_model,
+                    input_type=input_type,
+                    output_dimension=settings.voyage_dimension,
+                    truncation=True,
+                ),
+            )
+            all_embeddings.extend(result.embeddings)
+            logger.debug(
+                "Voyage embed | batch=%d/%d | tokens=%d",
+                i // batch_size + 1,
+                (len(texts) + batch_size - 1) // batch_size,
+                result.total_tokens,
+            )
 
-        A estrutura do código já suporta a troca — basta alterar
-        _generate_embeddings para chamar a API de embeddings.
-        """
-        import hashlib
-
-        # Gerar múltiplos hashes para criar dimensões
-        vector = []
-        text_bytes = text.encode("utf-8")
-
-        for i in range(dimensions):
-            # Cada dimensão é um hash diferente do texto
-            h = hashlib.sha256(text_bytes + str(i).encode()).digest()
-            # Converter primeiros 4 bytes para float entre -1 e 1
-            val = int.from_bytes(h[:4], "big") / (2**32) * 2 - 1
-            vector.append(round(val, 6))
-
-        # Normalizar o vetor (L2 norm = 1)
-        norm = sum(v**2 for v in vector) ** 0.5
-        if norm > 0:
-            vector = [v / norm for v in vector]
-
-        return vector
+        return all_embeddings
 
     # ═══════════════════════════════════════════════════
     # MANUTENÇÃO
@@ -410,6 +442,7 @@ class EmbeddingService:
             "total_documents": docs_result.scalar() or 0,
             "total_embeddings": emb_result.scalar() or 0,
             "embedding_dimensions": EMBEDDING_DIMENSION,
+            "embedding_model": settings.voyage_model,
             "chunk_size": CHUNK_SIZE,
             "chunk_overlap": CHUNK_OVERLAP,
         }

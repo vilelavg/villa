@@ -1,6 +1,13 @@
 """
 Villa — Conexão com PostgreSQL
 Engine async, session factory, e dependency injection para FastAPI.
+
+NOTA SOBRE MIGRATIONS: A partir desta versão, criação de tabelas é
+responsabilidade do Alembic (db/migrations/versions/), não do init_db().
+O init_db() agora só garante que a extensão pgvector existe.
+
+Para aplicar mudanças de schema, use:
+    alembic upgrade head
 """
 
 from collections.abc import AsyncGenerator
@@ -85,14 +92,16 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 # ── Funções de ciclo de vida ──
 async def init_db() -> None:
     """
-    Inicializa o banco: cria tabelas e extensões.
-    Chamado no startup do FastAPI.
+    Inicializa o banco no startup do FastAPI.
+
+    Garante que a extensão pgvector está habilitada. Migrations de schema
+    são responsabilidade do Alembic (rode `alembic upgrade head` separadamente
+    ou via entrypoint do container).
     """
     async with engine.begin() as conn:
-        # Habilitar pgvector
+        # Garantir extensões necessárias (idempotente)
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        # Criar todas as tabelas definidas nos modelos
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"'))
 
 
 async def close_db() -> None:
