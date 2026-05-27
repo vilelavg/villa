@@ -47,3 +47,5 @@ httpx>=0.28.0  # já listado acima, usado também como test client
 
 # ── Dev Tools ──
 ruff>=0.8.0,<1.0.0
+# Embeddings (Voyage AI)
+voyageai>=0.3.0
