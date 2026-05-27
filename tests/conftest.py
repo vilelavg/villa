@@ -5,12 +5,16 @@
 # Estratégia de isolamento:
 #   - Cada teste recebe uma transação que é revertida ao final
 #     (rollback) — banco sempre limpo, sem DELETE manual.
-#   - Todas as chamadas a APIs externas (Anthropic, Kommo, Meta,
-#     Google, WhatsApp) são interceptadas por mocks automáticos.
-#     Nenhum teste jamais faz uma requisição HTTP real.
-#   - Redis usa instância real do docker-compose.test.yml (porta
-#     6380). Em CI, o serviço redis-test é provisionado pelo
-#     workflow antes dos testes rodarem.
+#   - Todas as chamadas a APIs externas são interceptadas por mocks.
+#     Nenhum teste jamais faz requisição HTTP real.
+#   - Banco de testes: villa_test_db na porta 5433 (docker-compose.test.yml)
+#
+# CORREÇÃO v2 (2026-05):
+#   - create_test_schema não faz mais downgrade "base" no teardown.
+#     O downgrade destruía o schema do banco de testes e, antes da
+#     correção do env.py, executava contra villa_db (banco principal).
+#     Agora o teardown apenas desconecta — o schema persiste entre
+#     rodadas (idempotente via "upgrade head").
 # ═══════════════════════════════════════════════════════════════
 
 from __future__ import annotations
@@ -31,8 +35,6 @@ from sqlalchemy.ext.asyncio import (
 )
 
 # ── URL do banco de testes ───────────────────────────────────────────────────
-# Em CI: injetada pelo GitHub Actions como variável de ambiente.
-# Local: definida no .env.test (nunca comitar).
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
     "postgresql+asyncpg://villa:villa_dev_2026@localhost:5433/villa_test_db",
@@ -42,50 +44,53 @@ TEST_REDIS_URL = os.getenv("TEST_REDIS_URL", "redis://localhost:6380/1")
 
 
 # ── Engine dedicada ao ambiente de testes ───────────────────────────────────
-# Criada uma vez por sessão de pytest. Pool mínimo para não desperdiçar
-# conexões durante os testes paralelos.
 @pytest.fixture(scope="session")
-def engine():
+def event_loop_policy():
+    """Política de event loop para a sessão — evita DeprecationWarning no Python 3.12."""
+    import asyncio
+    return asyncio.DefaultEventLoopPolicy()
+
+
+@pytest_asyncio.fixture(scope="session")
+async def engine():
     _engine = create_async_engine(
         TEST_DATABASE_URL,
-        echo=False,  # True para debug SQL; False para output limpo
+        echo=False,
         pool_size=5,
         max_overflow=10,
     )
     yield _engine
-    # Encerra o pool ao final de toda a suíte
-    asyncio.get_event_loop().run_until_complete(_engine.dispose())
+    await _engine.dispose()
 
 
 # ── Criação do schema de testes ─────────────────────────────────────────────
-# Roda uma única vez por sessão APENAS quando testes de integração precisam
-# de banco real. NÃO tem autouse=True — testes unitários usam AsyncMock
-# e nunca acionam esta fixture, evitando a dependência do Alembic.
+# CORREÇÃO: não faz mais downgrade no teardown.
+# Motivo: downgrade "base" destruía o schema. Se o env.py não respeitava a
+# URL injetada (bug corrigido em env.py v2), o downgrade batia no banco
+# principal. Mesmo com env.py corrigido, destruir e recriar o schema a
+# cada rodada é lento e desnecessário — upgrade head é idempotente.
 @pytest_asyncio.fixture(scope="session")
 async def create_test_schema(engine):
     from alembic import command
     from alembic.config import Config
 
     alembic_cfg = Config("alembic.ini")
+    # Injeta URL do banco de testes — env.py v2 respeita esta injeção
     alembic_cfg.set_main_option("sqlalchemy.url", TEST_DATABASE_URL)
 
-    # Aplica todas as migrations no banco de testes
+    # Aplica migrations pendentes (idempotente — não faz nada se já está no head)
     await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
     yield
-    # Ao final da suíte, reverte tudo (banco volta ao estado vazio)
-    await asyncio.to_thread(command.downgrade, alembic_cfg, "base")
+    # SEM downgrade no teardown — schema persiste entre rodadas
+    # Para resetar manualmente: docker compose exec postgres psql -U villa -c "DROP DATABASE villa_test_db"
 
 
 # ── Sessão de banco isolada por teste (rollback automático) ─────────────────
-# Cada teste roda dentro de uma transação aberta que é revertida ao final.
-# Isso garante isolamento perfeito sem DELETE de dados entre testes.
-# Depende explicitamente de create_test_schema — só testes de integração
-# que usam db_session acionam a migration do Alembic.
 @pytest_asyncio.fixture
 async def db_session(engine, create_test_schema) -> AsyncGenerator[AsyncSession, None]:
     async with engine.connect() as conn:
-        await conn.begin()  # abre a transação externa
-        await conn.begin_nested()  # savepoint — revertido ao final do teste
+        await conn.begin()
+        await conn.begin_nested()
 
         async_session_factory = async_sessionmaker(
             bind=conn,
@@ -97,17 +102,14 @@ async def db_session(engine, create_test_schema) -> AsyncGenerator[AsyncSession,
         async with async_session_factory() as session:
             yield session
 
-        # Garante rollback mesmo se o teste falhar no meio
         if conn.in_transaction():
             await conn.rollback()
 
 
 # ── Override da sessão de DB na aplicação ───────────────────────────────────
-# Substitui a sessão real do FastAPI pela sessão de teste (com rollback).
-# Qualquer endpoint que abre uma sessão de DB recebe a sessão de teste.
 @pytest_asyncio.fixture
 async def override_db(db_session: AsyncSession):
-    from core.database import get_session  # importação lazy — evita circular
+    from core.database import get_session
 
     async def _get_test_session():
         yield db_session
@@ -119,9 +121,7 @@ async def override_db(db_session: AsyncSession):
     app.dependency_overrides.clear()
 
 
-# ── Cliente HTTP para testes de API (FastAPI) ────────────────────────────────
-# Usa httpx.AsyncClient apontando para a app FastAPI diretamente,
-# sem precisar subir o servidor. Inclui o override de DB automaticamente.
+# ── Cliente HTTP para testes de API ─────────────────────────────────────────
 @pytest_asyncio.fixture
 async def client(override_db) -> AsyncGenerator[httpx.AsyncClient, None]:
     from core.main import app
@@ -134,7 +134,7 @@ async def client(override_db) -> AsyncGenerator[httpx.AsyncClient, None]:
         yield ac
 
 
-# ── Cliente HTTP autenticado (token de admin) ────────────────────────────────
+# ── Cliente HTTP autenticado ─────────────────────────────────────────────────
 @pytest_asyncio.fixture
 async def auth_client(client: httpx.AsyncClient) -> httpx.AsyncClient:
     from security.auth import create_access_token
@@ -146,14 +146,8 @@ async def auth_client(client: httpx.AsyncClient) -> httpx.AsyncClient:
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MOCKS DE APIs EXTERNAS
-# Cada mock é uma fixture que intercepta chamadas HTTP para a API correspondente.
-# Os testes nunca fazem chamadas reais — são isolados e repeníveis offline.
 # ══════════════════════════════════════════════════════════════════════════════
 
-
-# ── Mock Anthropic (Claude) ──────────────────────────────────────────────────
-# Retorna uma resposta padrão configurável por teste.
-# Uso: def test_algo(mock_claude): mock_claude.return_value = "meu output"
 @pytest.fixture
 def mock_claude() -> Generator[AsyncMock, None, None]:
     default_response = MagicMock()
@@ -165,111 +159,72 @@ def mock_claude() -> Generator[AsyncMock, None, None]:
         yield mock
 
 
-# ── Mock Kommo CRM ───────────────────────────────────────────────────────────
 @pytest.fixture
 def mock_kommo() -> Generator[MagicMock, None, None]:
     kommo_response = {
-        "leads": [
-            {
-                "id": 123456,
-                "name": "Lead Teste",
-                "status_id": 1,
-                "pipeline_id": 1,
-                "created_at": 1700000000,
-            }
-        ],
+        "leads": [{"id": 123456, "name": "Lead Teste", "status_id": 1,
+                   "pipeline_id": 1, "created_at": 1700000000}],
         "_page": 1,
         "_links": {"self": {"href": "/api/v4/leads"}},
     }
-
     with patch("integrations.kommo.KommoClient._request", new_callable=AsyncMock) as mock:
         mock.return_value = kommo_response
         yield mock
 
 
-# ── Mock Meta Ads API ────────────────────────────────────────────────────────
 @pytest.fixture
 def mock_meta() -> Generator[MagicMock, None, None]:
     meta_response = {
-        "data": [
-            {
-                "campaign_id": "120210000000001",
-                "impressions": "10000",
-                "clicks": "300",
-                "spend": "250.00",
-                "reach": "8500",
-                "date_start": "2026-05-01",
-                "date_stop": "2026-05-07",
-            }
-        ],
+        "data": [{"campaign_id": "120210000000001", "impressions": "10000",
+                  "clicks": "300", "spend": "250.00", "reach": "8500",
+                  "date_start": "2026-05-01", "date_stop": "2026-05-07"}],
         "paging": {"cursors": {"before": "abc", "after": "def"}},
     }
-
     with patch("integrations.meta.MetaClient._request", new_callable=AsyncMock) as mock:
         mock.return_value = meta_response
         yield mock
 
 
-# ── Mock Google Calendar ─────────────────────────────────────────────────────
 @pytest.fixture
 def mock_google_calendar() -> Generator[MagicMock, None, None]:
     calendar_response = {
-        "items": [
-            {
-                "id": "event_teste_123",
-                "summary": "Consulta - Dr. Linardi",
-                "start": {"dateTime": "2026-06-01T10:00:00-03:00"},
-                "end": {"dateTime": "2026-06-01T11:00:00-03:00"},
-                "status": "confirmed",
-            }
-        ]
+        "items": [{"id": "event_teste_123", "summary": "Consulta - Dr. Linardi",
+                   "start": {"dateTime": "2026-06-01T10:00:00-03:00"},
+                   "end": {"dateTime": "2026-06-01T11:00:00-03:00"},
+                   "status": "confirmed"}]
     }
-
-    with patch(
-        "integrations.google_calendar.GoogleCalendarClient._request",
-        new_callable=AsyncMock,
-    ) as mock:
+    with patch("integrations.google_calendar.GoogleCalendarClient._request",
+               new_callable=AsyncMock) as mock:
         mock.return_value = calendar_response
         yield mock
 
 
-# ── Mock Google Drive ────────────────────────────────────────────────────────
 @pytest.fixture
 def mock_google_drive() -> Generator[MagicMock, None, None]:
-    with patch(
-        "integrations.google_drive.GoogleDriveClient._request",
-        new_callable=AsyncMock,
-    ) as mock:
+    with patch("integrations.google_drive.GoogleDriveClient._request",
+               new_callable=AsyncMock) as mock:
         mock.return_value = {"id": "file_123", "name": "roteiro_teste.docx"}
         yield mock
 
 
-# ── Mock WhatsApp Business API ───────────────────────────────────────────────
 @pytest.fixture
 def mock_whatsapp() -> Generator[MagicMock, None, None]:
-    with patch(
-        "integrations.whatsapp.WhatsAppClient._request",
-        new_callable=AsyncMock,
-    ) as mock:
-        mock.return_value = {
-            "messages": [{"id": "wamid.teste_123"}],
-            "messaging_product": "whatsapp",
-        }
+    with patch("integrations.whatsapp.WhatsAppClient._request",
+               new_callable=AsyncMock) as mock:
+        mock.return_value = {"messages": [{"id": "wamid.teste_123"}],
+                             "messaging_product": "whatsapp"}
         yield mock
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DADOS DE TESTE — fixtures com entidades prontas para uso nos testes
+# DADOS DE TESTE
 # ══════════════════════════════════════════════════════════════════════════════
 
-
-# ── Slug de cliente de teste ─────────────────────────────────────────────────
 @pytest.fixture
 def client_slug() -> str:
     return "clinica-demo"
 
 
-# ── Payload de roteiro válido ─────────────────────────────────────────────────
 @pytest.fixture
 def roteiro_payload(client_slug: str) -> dict[str, Any]:
     return {
@@ -284,7 +239,6 @@ def roteiro_payload(client_slug: str) -> dict[str, Any]:
     }
 
 
-# ── Payload de lead de teste ─────────────────────────────────────────────────
 @pytest.fixture
 def lead_payload(client_slug: str) -> dict[str, Any]:
     return {
@@ -297,14 +251,13 @@ def lead_payload(client_slug: str) -> dict[str, Any]:
     }
 
 
-# ── Dados de campanha de teste ────────────────────────────────────────────────
 @pytest.fixture
 def campanha_data() -> dict[str, Any]:
     return {
         "campaign_id": "120210000000001",
         "campaign_name": "Implante | Remarketing | Mai26",
         "status": "ACTIVE",
-        "daily_budget": 5000,  # centavos (R$50,00)
+        "daily_budget": 5000,
         "impressions": 10000,
         "clicks": 300,
         "spend": 250.00,
@@ -315,21 +268,11 @@ def campanha_data() -> dict[str, Any]:
     }
 
 
-# ── Usuário admin de teste ────────────────────────────────────────────────────
 @pytest.fixture
 def admin_user() -> dict[str, Any]:
-    return {
-        "email": "caio@webxp.com.br",
-        "nome": "Caio",
-        "role": "admin",
-    }
+    return {"email": "caio@webxp.com.br", "nome": "Caio", "role": "admin"}
 
 
-# ── Usuário operador de teste ─────────────────────────────────────────────────
 @pytest.fixture
 def operador_user() -> dict[str, Any]:
-    return {
-        "email": "thais@webxp.com.br",
-        "nome": "Thaís",
-        "role": "operador",
-    }
+    return {"email": "thais@webxp.com.br", "nome": "Thaís", "role": "operador"}
