@@ -19,7 +19,7 @@ testes de integracao basicos.
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -30,7 +30,6 @@ from memory.working_memory import (
     WorkingMemory,
     load_session_history,
     save_exchange,
-    working_memory,
 )
 
 
