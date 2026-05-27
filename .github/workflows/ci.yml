@@ -135,6 +135,30 @@ jobs:
 
       - name: Rodar migrations no banco de testes
         run: |
+          python - <<'PYEOF'
+import asyncio, os
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import text
+
+async def main():
+    url = os.environ["TEST_DATABASE_URL"]
+    engine = create_async_engine(url)
+    # Importar todos os modelos para registrar metadata
+    from core.database import Base
+    import core.models  # noqa
+    async with engine.begin() as conn:
+        # Criar extensao pgvector
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        # Criar todas as tabelas base via SQLAlchemy
+        await conn.run_sync(Base.metadata.create_all)
+    await engine.dispose()
+    print("Tabelas base criadas.")
+
+asyncio.run(main())
+PYEOF
+          # Stampar baseline (tabelas base ja existem)
+          alembic stamp 000_baseline
+          # Aplicar migrations incrementais (Client OS, etc)
           alembic upgrade head
 
       - name: Rodar testes com cobertura
