@@ -4,6 +4,7 @@ Todos os 13 módulos herdam desta classe.
 Define a interface padrão: execute, can_handle, get_status.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from uuid import uuid4
@@ -13,6 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.models import DecisionLog, ModuleCode, ModuleConfig, User
 from integrations.anthropic_client import AnthropicClient, claude
+
+logger = logging.getLogger(__name__)
+
+# ── Constantes ──
+# Limite de caracteres do Client OS narrative injetado no system prompt.
+# Acima disso, o narrative e truncado para controle de tokens.
+CLIENT_OS_NARRATIVE_MAX_CHARS = 2000
 
 
 class BaseModule(ABC):
@@ -32,6 +40,7 @@ class BaseModule(ABC):
         - Audit log automático
         - Carregamento de config e prompt do banco
         - Controle de execução (ativo/inativo)
+        - Enriquecimento automático com Client OS quando client_slug e passado
     """
 
     # ── Subclasses DEVEM definir ──
@@ -104,9 +113,20 @@ class BaseModule(ABC):
         """
         Envia mensagem ao Claude com system prompt do módulo
         e registra a decisão no feedback loop.
+
+        Quando client_slug e passado, o system prompt e automaticamente
+        enriquecido com o narrative do Client OS para este cliente
+        (fatos, episodios, preferencias, pendencias, objetivos).
+
+        Se o Client OS estiver indisponivel ou o cliente nao tiver
+        estado registrado, mantem comportamento original sem
+        enriquecimento.
         """
         # Carregar system prompt (do banco ou do arquivo)
         system = system_override or await self._get_system_prompt(db)
+
+        # Enriquecer com Client OS se cliente foi identificado
+        system = await self._enrich_system_with_client_os(system, db, client_slug)
 
         # Chamar Claude
         response = await self.claude.ask(
@@ -234,6 +254,63 @@ class BaseModule(ABC):
     # ═══════════════════════════════════════════════════
     # MÉTODOS INTERNOS
     # ═══════════════════════════════════════════════════
+
+    async def _enrich_system_with_client_os(
+        self,
+        system: str,
+        db: AsyncSession,
+        client_slug: str | None,
+    ) -> str:
+        """
+        Enriquece o system prompt com o narrative do Client OS, se
+        disponivel.
+
+        Comportamento defensivo: qualquer falha (cliente nao existe,
+        Client OS indisponivel, modulo memory.client_os ausente, narrative
+        vazio) resulta em retornar o system prompt original sem
+        modificacao. Esta funcao NUNCA propaga excecoes.
+
+        Args:
+            system: system prompt original
+            db: sessao do banco
+            client_slug: slug do cliente alvo (None desativa enriquecimento)
+
+        Returns:
+            system prompt original ou enriquecido com bloco de contexto.
+        """
+        if not client_slug:
+            return system
+
+        try:
+            # Import local para evitar dependencia circular
+            from memory.client_os import ClientOS
+
+            cos = await ClientOS.for_slug(db, client_slug)
+            narrative = await cos.narrative()
+
+            if not narrative or not narrative.strip():
+                return system
+
+            # Truncar para controle de tokens
+            if len(narrative) > CLIENT_OS_NARRATIVE_MAX_CHARS:
+                narrative = (
+                    narrative[:CLIENT_OS_NARRATIVE_MAX_CHARS]
+                    + "\n[...narrative truncado]"
+                )
+
+            return f"{system}\n\n## Contexto do cliente\n{narrative}"
+
+        except Exception as e:
+            # Esperado: ClientNotFoundError quando cliente nao tem estado,
+            # ImportError em ambiente sem Client OS, ClientOSError em falhas
+            # de banco. Em todos os casos: mantem comportamento original.
+            logger.debug(
+                "Client OS nao enriqueceu prompt do modulo %s para cliente '%s': %s",
+                self.code.value,
+                client_slug,
+                e,
+            )
+            return system
 
     async def _get_system_prompt(self, db: AsyncSession) -> str:
         """Carrega system prompt: banco > arquivo > default."""
