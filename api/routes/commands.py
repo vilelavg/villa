@@ -39,6 +39,7 @@ async def execute_command(
         user=user,
         client_slug=command.client_slug,
         module_hint=command.module,
+        session_id=command.session_id,
     )
 
 
@@ -65,4 +66,5 @@ async def execute_direct_module(
         user=user,
         client_slug=command.client_slug,
         module_hint=module,
+        session_id=command.session_id,
     )

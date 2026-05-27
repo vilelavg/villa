@@ -911,6 +911,13 @@ class CommandRequest(BaseModel):
     client_slug: str | None = Field(None, description="Slug do cliente (se específico)")
     module: ModuleCode | None = Field(None, description="Módulo específico (se conhecido)")
     urgent: bool = Field(False, description="Se deve priorizar processamento")
+    session_id: str | None = Field(
+        None,
+        description=(
+            "ID de sessao para Working Memory. Quando informado, o Villa "
+            "lembra das ultimas mensagens da mesma sessao."
+        ),
+    )
 
 
 class CommandResponse(BaseModel):
@@ -922,6 +929,7 @@ class CommandResponse(BaseModel):
     data: dict | None = None
     actions_taken: list[str] = []
     tokens_used: int | None = None
+    session_id: str | None = None
 
 
 class HealthResponse(BaseModel):
