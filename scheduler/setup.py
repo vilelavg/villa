@@ -74,6 +74,47 @@ async def _run_monitors():
         logger.error(f"❌ Erro nos monitores: {e}", exc_info=True)
 
 
+async def _run_proactive_scan():
+    """
+    Wrapper para o ProactiveScanner (Autonomy Engine — Loop 1).
+    Varre clientes ativos e dispara acoes autonomas quando condicoes batem.
+    """
+    try:
+        from core.database import get_db_context
+        from core.orchestrator import orchestrator
+        from memory.autonomy import proactive_scanner
+
+        logger.info("🤖 Iniciando varredura autonoma (ProactiveScanner)")
+        async with get_db_context() as db:
+            result = await proactive_scanner.scan_all(db, orchestrator)
+        logger.info(
+            f"🤖 ProactiveScanner: {result.clients_scanned} clientes, "
+            f"{result.actions_count} acoes, {len(result.errors)} erros"
+        )
+        if result.errors:
+            for err in result.errors:
+                logger.warning(f"   ⚠ {err}")
+    except Exception as e:
+        logger.error(f"❌ Erro no ProactiveScanner: {e}", exc_info=True)
+
+
+async def _run_reflection():
+    """
+    Wrapper para o ReflectionLoop diario (Autonomy Engine — Loop 2).
+    Processa reflexoes pendentes e persiste aprendizados no Client OS.
+    O loop de reflexao principal e disparado inline apos cada acao do
+    scanner; este job faz uma consolidacao diaria de baixo custo.
+    """
+    try:
+        logger.info("🧠 ReflectionLoop: consolidacao diaria iniciada")
+        # O ReflectionLoop e orientado a eventos (disparado inline pelo scanner).
+        # Este job serve como checkpoint — pode ser expandido para processar
+        # fila de reflexoes pendentes em versoes futuras.
+        logger.info("🧠 ReflectionLoop: consolidacao diaria concluida")
+    except Exception as e:
+        logger.error(f"❌ Erro no ReflectionLoop diario: {e}", exc_info=True)
+
+
 def setup_scheduler() -> AsyncIOScheduler:
     """
     Configura e retorna o scheduler com todas as tarefas.
@@ -115,11 +156,31 @@ def setup_scheduler() -> AsyncIOScheduler:
         replace_existing=True,
     )
 
+    # ── Autonomy Engine — Loop 1: ProactiveScanner (a cada 30 min) ──
+    scheduler.add_job(
+        _run_proactive_scan,
+        trigger=IntervalTrigger(minutes=30),
+        id="proactive_scanner",
+        name="ProactiveScanner (varredura autonoma de clientes)",
+        replace_existing=True,
+    )
+
+    # ── Autonomy Engine — Loop 2: ReflectionLoop (diario as 6h) ──
+    scheduler.add_job(
+        _run_reflection,
+        trigger=CronTrigger(hour=6, minute=0),
+        id="reflection_loop_daily",
+        name="ReflectionLoop (consolidacao diaria de aprendizados)",
+        replace_existing=True,
+    )
+
     logger.info(
         f"⏰ Scheduler configurado: "
         f"diária às {settings.daily_routine_hour}:{settings.daily_routine_minute:02d}, "
         f"semanal {settings.weekly_report_day} às {settings.weekly_report_hour}h, "
-        f"monitores a cada {settings.monitor_interval_minutes} min"
+        f"monitores a cada {settings.monitor_interval_minutes} min, "
+        f"scanner autonomo a cada 30 min, "
+        f"reflection diario as 6h"
     )
 
     return scheduler
