@@ -266,6 +266,47 @@ class Orchestrator:
             if not await module.is_active(db):
                 continue
 
+            # ── Risk Engine: avalia ANTES de executar (P2.C) ──
+            # Defensivo: qualquer falha aqui e absorvida pelo proprio Risk
+            # Engine (fail-open). Bloqueia apenas quando approved=False.
+            try:
+                from memory.risk import risk_engine
+
+                assessment = await risk_engine.evaluate(
+                    event_type=event_type,
+                    module_code=code.value,
+                    severity=str(payload.get("severity", "info")),
+                    client_slug=payload.get("client_slug"),
+                    db=db,
+                    action_description=payload.get("reason"),
+                )
+            except Exception as e:
+                # Falha em importar/instanciar: fail-open silencioso
+                logger.debug("RiskEngine indisponivel, permitindo acao: %s", e)
+                assessment = None
+
+            if assessment is not None and not assessment.approved:
+                await audit.log(
+                    action=f"event_blocked_by_risk_{code.value}",
+                    module=code,
+                    details={
+                        "event_type": event_type,
+                        "risk_level": assessment.risk_level,
+                        "reason": assessment.reason,
+                        "requires_confirmation": assessment.requires_confirmation,
+                    },
+                    success=False,
+                )
+                results.append({
+                    "module": code.value,
+                    "success": False,
+                    "risk_blocked": True,
+                    "risk_level": assessment.risk_level,
+                    "requires_confirmation": assessment.requires_confirmation,
+                    "reason": assessment.reason,
+                })
+                continue
+
             try:
                 result = await module.execute(
                     message=event_type,
@@ -601,7 +642,7 @@ def setup_orchestrator() -> Orchestrator:
         ],
     )
 
-    # ── Autonomy Engine — eventos do ProactiveScanner ──
+    # ?? Autonomy Engine ? eventos do ProactiveScanner ??
     orchestrator.register_event_route(
         "autonomy_cpl_spike",
         [
@@ -633,3 +674,34 @@ def setup_orchestrator() -> Orchestrator:
         ],
     )
     return orchestrator
+    # ── Autonomy Engine — eventos do ProactiveScanner ──
+    orchestrator.register_event_route(
+        "autonomy_cpl_spike",
+        [
+            ModuleCode.M04_CAMPANHAS,
+            ModuleCode.M12_ALERTAS,
+        ],
+    )
+
+    orchestrator.register_event_route(
+        "autonomy_frequency_high",
+        [
+            ModuleCode.M04_CAMPANHAS,
+            ModuleCode.M11_HIPOTESES,
+        ],
+    )
+
+    orchestrator.register_event_route(
+        "autonomy_stale_creatives",
+        [
+            ModuleCode.M11_HIPOTESES,
+        ],
+    )
+
+    orchestrator.register_event_route(
+        "autonomy_low_health",
+        [
+            ModuleCode.M04_CAMPANHAS,
+            ModuleCode.M12_ALERTAS,
+        ],
+    )
