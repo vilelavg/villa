@@ -203,9 +203,16 @@ class ProactiveScanner:
         db: AsyncSession,
         orchestrator: Any,
     ) -> None:
-        """Dispara a acao via orchestrator.handle_event (defensivo)."""
+        """
+        Dispara a acao via orchestrator.handle_event e fecha o ciclo de
+        aprendizado chamando o ReflectionLoop com o resultado (defensivo).
+
+        Fluxo completo (Loop 1 + Loop 2):
+            scanner detecta → orquestrador executa modulo → reflection aprende
+        """
+        event_result: Any = None
         try:
-            await orchestrator.handle_event(
+            event_result = await orchestrator.handle_event(
                 event_type=action.event_type,
                 payload={
                     "client_slug": action.client_slug,
@@ -223,6 +230,45 @@ class ProactiveScanner:
                 action.client_slug,
                 e,
             )
+
+        # ── Fecha o ciclo: ReflectionLoop aprende com a acao tomada ──
+        # Totalmente defensivo: falha aqui nunca impacta o scan.
+        try:
+            from memory.autonomy.reflection_loop import reflection_loop
+
+            await reflection_loop.reflect(
+                db=db,
+                client_slug=action.client_slug,
+                event_type=action.event_type,
+                event_reason=action.reason,
+                severity=action.severity,
+                action_outcome=self._summarize_outcome(event_result),
+            )
+        except Exception as e:
+            logger.debug(
+                "ProactiveScanner: reflexao falhou para '%s' (%s): %s",
+                action.client_slug,
+                action.event_type,
+                e,
+            )
+
+    @staticmethod
+    def _summarize_outcome(event_result: Any) -> dict[str, Any] | None:
+        """
+        Converte o retorno do handle_event num dict simples para o
+        ReflectionLoop. Defensivo: tipos inesperados viram None.
+        """
+        if event_result is None:
+            return None
+        try:
+            if isinstance(event_result, dict):
+                return event_result
+            # Resultado pode ser uma lista de resultados por modulo
+            if isinstance(event_result, list):
+                return {"results": [str(r)[:200] for r in event_result]}
+            return {"result": str(event_result)[:500]}
+        except Exception:
+            return None
 
     async def _build_client_views(self, db: AsyncSession) -> list[dict[str, Any]]:
         """
@@ -280,7 +326,9 @@ class ProactiveScanner:
         Enriquece a view com dados ja disponiveis no banco (defensivo).
         Cada bloco e isolado: falha em um nao impede os demais.
         """
-        # Health score e frequencia das campanhas ativas
+        # Health score, CPL e frequencia das campanhas ativas.
+        # villa_analysis (JSONB) guarda metricas calculadas; extracao 100%
+        # defensiva — qualquer campo ausente fica None e a condicao nao dispara.
         try:
             from core.models import Campaign
 
@@ -294,8 +342,11 @@ class ProactiveScanner:
                 scores = [c.health_score for c in campaigns if getattr(c, "health_score", None) is not None]
                 if scores:
                     view["health_score"] = min(scores)  # pior caso entre campanhas
+
+                # Extrai CPL e frequencia do villa_analysis (pior caso entre campanhas)
+                self._enrich_metrics_from_analysis(view, campaigns)
         except Exception as e:
-            logger.debug("enrich health_score falhou para %s: %s", view["slug"], e)
+            logger.debug("enrich campanhas falhou para %s: %s", view["slug"], e)
 
         # Dias desde o ultimo roteiro
         try:
@@ -316,6 +367,58 @@ class ProactiveScanner:
                 view["days_since_last_roteiro"] = (now - last).days
         except Exception as e:
             logger.debug("enrich days_since_last_roteiro falhou para %s: %s", view["slug"], e)
+
+    @staticmethod
+    def _enrich_metrics_from_analysis(view: dict[str, Any], campaigns: list[Any]) -> None:
+        """
+        Extrai CPL (atual/anterior) e frequencia do campo villa_analysis
+        das campanhas. Pega o pior caso: maior CPL atual e maior frequencia.
+
+        villa_analysis e um dict JSONB; as chaves esperadas sao:
+            cpl_current / cpl_atual, cpl_previous / cpl_anterior, frequency / frequencia
+
+        Aceita ambas grafias (pt/en) para robustez. Tudo defensivo.
+        """
+
+        def _pick(d: dict, *keys: str) -> Any:
+            for k in keys:
+                if k in d and d[k] is not None:
+                    return d[k]
+            return None
+
+        cpl_currents: list[float] = []
+        cpl_previous_map: dict[float, float] = {}
+        frequencies: list[float] = []
+
+        for c in campaigns:
+            analysis = getattr(c, "villa_analysis", None)
+            if not isinstance(analysis, dict):
+                continue
+            try:
+                cur = _pick(analysis, "cpl_current", "cpl_atual")
+                prev = _pick(analysis, "cpl_previous", "cpl_anterior")
+                freq = _pick(analysis, "frequency", "frequencia")
+
+                if cur is not None:
+                    cur_f = float(cur)
+                    cpl_currents.append(cur_f)
+                    if prev is not None:
+                        cpl_previous_map[cur_f] = float(prev)
+                if freq is not None:
+                    frequencies.append(float(freq))
+            except (TypeError, ValueError):
+                continue
+
+        # Pior caso: maior CPL atual (e seu respectivo anterior, se houver)
+        if cpl_currents:
+            worst_cpl = max(cpl_currents)
+            view["cpl_current"] = worst_cpl
+            if worst_cpl in cpl_previous_map:
+                view["cpl_previous"] = cpl_previous_map[worst_cpl]
+
+        # Pior caso: maior frequencia
+        if frequencies:
+            view["frequency"] = max(frequencies)
 
 
 # ── Instancia global ──

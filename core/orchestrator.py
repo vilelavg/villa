@@ -601,4 +601,35 @@ def setup_orchestrator() -> Orchestrator:
         ],
     )
 
+    # ── Autonomy Engine — eventos do ProactiveScanner ──
+    orchestrator.register_event_route(
+        "autonomy_cpl_spike",
+        [
+            ModuleCode.M04_CAMPANHAS,
+            ModuleCode.M12_ALERTAS,
+        ],
+    )
+
+    orchestrator.register_event_route(
+        "autonomy_frequency_high",
+        [
+            ModuleCode.M04_CAMPANHAS,
+            ModuleCode.M11_HIPOTESES,
+        ],
+    )
+
+    orchestrator.register_event_route(
+        "autonomy_stale_creatives",
+        [
+            ModuleCode.M11_HIPOTESES,
+        ],
+    )
+
+    orchestrator.register_event_route(
+        "autonomy_low_health",
+        [
+            ModuleCode.M04_CAMPANHAS,
+            ModuleCode.M12_ALERTAS,
+        ],
+    )
     return orchestrator
