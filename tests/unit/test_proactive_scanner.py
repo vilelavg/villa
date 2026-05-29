@@ -213,3 +213,150 @@ class TestScanAll:
             result = await scanner.scan_all(db=MagicMock())
         assert result.clients_scanned == 0
         assert len(result.errors) == 1
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P2.B — Enriquecimento de CPL/frequencia a partir de villa_analysis
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _FakeCampaign:
+    """Campanha fake com villa_analysis para testes de enriquecimento."""
+
+    def __init__(self, villa_analysis=None, health_score=None):
+        self.villa_analysis = villa_analysis
+        self.health_score = health_score
+
+
+class TestEnrichMetricsFromAnalysis:
+    def test_extrai_cpl_e_frequencia_en(self):
+        view = _view()
+        campaigns = [_FakeCampaign({"cpl_current": 150.0, "cpl_previous": 100.0, "frequency": 3.2})]
+        ProactiveScanner._enrich_metrics_from_analysis(view, campaigns)
+        assert view["cpl_current"] == 150.0
+        assert view["cpl_previous"] == 100.0
+        assert view["frequency"] == 3.2
+
+    def test_extrai_cpl_e_frequencia_pt(self):
+        view = _view()
+        campaigns = [_FakeCampaign({"cpl_atual": 120.0, "cpl_anterior": 90.0, "frequencia": 2.8})]
+        ProactiveScanner._enrich_metrics_from_analysis(view, campaigns)
+        assert view["cpl_current"] == 120.0
+        assert view["cpl_previous"] == 90.0
+        assert view["frequency"] == 2.8
+
+    def test_pega_pior_caso_entre_campanhas(self):
+        view = _view()
+        campaigns = [
+            _FakeCampaign({"cpl_current": 100.0, "cpl_previous": 80.0, "frequency": 2.0}),
+            _FakeCampaign({"cpl_current": 200.0, "cpl_previous": 150.0, "frequency": 4.0}),
+        ]
+        ProactiveScanner._enrich_metrics_from_analysis(view, campaigns)
+        assert view["cpl_current"] == 200.0       # maior CPL atual
+        assert view["cpl_previous"] == 150.0      # anterior correspondente
+        assert view["frequency"] == 4.0           # maior frequencia
+
+    def test_villa_analysis_none_nao_quebra(self):
+        view = _view()
+        campaigns = [_FakeCampaign(None), _FakeCampaign({"cpl_current": 50.0})]
+        ProactiveScanner._enrich_metrics_from_analysis(view, campaigns)
+        assert view["cpl_current"] == 50.0
+
+    def test_valores_invalidos_sao_ignorados(self):
+        view = _view()
+        campaigns = [_FakeCampaign({"cpl_current": "abc", "frequency": None})]
+        ProactiveScanner._enrich_metrics_from_analysis(view, campaigns)
+        assert view["cpl_current"] is None
+        assert view["frequency"] is None
+
+    def test_sem_campanhas_mantem_none(self):
+        view = _view()
+        ProactiveScanner._enrich_metrics_from_analysis(view, [])
+        assert view["cpl_current"] is None
+        assert view["cpl_previous"] is None
+        assert view["frequency"] is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P2.B — _summarize_outcome
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestSummarizeOutcome:
+    def test_none_retorna_none(self):
+        assert ProactiveScanner._summarize_outcome(None) is None
+
+    def test_dict_passa_direto(self):
+        result = ProactiveScanner._summarize_outcome({"health_score": 40})
+        assert result == {"health_score": 40}
+
+    def test_lista_vira_dict_com_results(self):
+        result = ProactiveScanner._summarize_outcome(["mod1 ok", "mod2 ok"])
+        assert "results" in result
+        assert len(result["results"]) == 2
+
+    def test_outro_tipo_vira_dict_com_result(self):
+        result = ProactiveScanner._summarize_outcome("texto qualquer")
+        assert "result" in result
+        assert "texto" in result["result"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P2.B — Ciclo ReflectionLoop no _dispatch
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestDispatchReflectionCycle:
+    async def test_dispatch_chama_reflection_apos_handle_event(self):
+        scanner = ProactiveScanner()
+        action = ScanAction(
+            client_slug="ottoboni",
+            event_type="autonomy_cpl_spike",
+            reason="CPL +40%",
+            severity="warning",
+            payload={"delta": 0.4},
+        )
+        orchestrator = MagicMock()
+        orchestrator.handle_event = AsyncMock(return_value={"health_score": 45})
+
+        with patch("memory.autonomy.reflection_loop.reflection_loop") as mock_refl:
+            mock_refl.reflect = AsyncMock()
+            await scanner._dispatch(action, db=MagicMock(), orchestrator=orchestrator)
+
+        orchestrator.handle_event.assert_awaited_once()
+        mock_refl.reflect.assert_awaited_once()
+        # reflect recebeu o outcome do handle_event
+        _, kwargs = mock_refl.reflect.call_args
+        assert kwargs["client_slug"] == "ottoboni"
+        assert kwargs["event_type"] == "autonomy_cpl_spike"
+        assert kwargs["severity"] == "warning"
+
+    async def test_dispatch_reflete_mesmo_se_handle_event_falha(self):
+        scanner = ProactiveScanner()
+        action = ScanAction(
+            client_slug="x", event_type="autonomy_low_health",
+            reason="score baixo", severity="critical",
+        )
+        orchestrator = MagicMock()
+        orchestrator.handle_event = AsyncMock(side_effect=RuntimeError("modulo quebrou"))
+
+        with patch("memory.autonomy.reflection_loop.reflection_loop") as mock_refl:
+            mock_refl.reflect = AsyncMock()
+            # nao deve propagar excecao
+            await scanner._dispatch(action, db=MagicMock(), orchestrator=orchestrator)
+
+        # reflexao ainda acontece (aprende ate com a falha)
+        mock_refl.reflect.assert_awaited_once()
+
+    async def test_dispatch_falha_na_reflexao_nao_propaga(self):
+        scanner = ProactiveScanner()
+        action = ScanAction(
+            client_slug="x", event_type="autonomy_cpl_spike",
+            reason="r", severity="warning",
+        )
+        orchestrator = MagicMock()
+        orchestrator.handle_event = AsyncMock(return_value=None)
+
+        with patch("memory.autonomy.reflection_loop.reflection_loop") as mock_refl:
+            mock_refl.reflect = AsyncMock(side_effect=RuntimeError("reflection down"))
+            # nao deve estourar
+            await scanner._dispatch(action, db=MagicMock(), orchestrator=orchestrator)
+
+        orchestrator.handle_event.assert_awaited_once()
