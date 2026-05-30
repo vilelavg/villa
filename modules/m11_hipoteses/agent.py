@@ -29,7 +29,7 @@ ROTEIROS APROVADOS COM FEEDBACK:
 
 PADRÕES IDENTIFICADOS:
 {patterns}
-
+{visual_context}
 {memory_context}
 
 Gere {count} hipóteses de novos criativos em JSON:
@@ -144,26 +144,59 @@ class M11Hipoteses(BaseModule):
                 client_slug=client.slug,
             )
 
-            response = await self.ask_claude(
-                message=HYPOTHESIS_PROMPT.format(
-                    client_name=client.name,
-                    specialty=client.specialty or "odontologia",
-                    top_performers=str(top_performers[:5])[:1500],
-                    low_performers=str(low_performers[:3])[:800],
-                    approved_roteiros=str(
-                        [
-                            {"hook": r.hook[:80], "feedback": r.human_feedback or ""}
-                            for r in roteiros[:5]
-                        ]
-                    )[:1000],
-                    patterns="\n".join(f"- {p}" for p in patterns)
-                    or "Sem padrões identificados ainda (dados insuficientes)",
-                    count=5,
-                    memory_context=memory["prompt_injection"],
-                ),
-                db=db,
-                client_slug=client.slug,
+            # ── Vision Pipeline (P1.B) ──
+            # Busca criativos do cliente no Drive. Tudo defensivo: se nao
+            # encontrar imagens, cai no fluxo textual normal sem erro.
+            visual_context_text = ""
+            vision_ctx = None
+            try:
+                from integrations.vision_pipeline import vision_pipeline
+
+                vision_ctx = await vision_pipeline.fetch_creatives(
+                    client=client, db=db, max_images=3,
+                )
+                if vision_ctx.has_images:
+                    visual_context_text = (
+                        f"\nCRIATIVOS VISUAIS ANALISADOS: {vision_ctx.creatives_found} "
+                        f"imagem(ns) anexada(s) acima. Considere o que voce ve nos "
+                        f"criativos atuais (estilo visual, composicao, elementos graficos) "
+                        f"ao propor as novas hipoteses."
+                    )
+            except Exception as e:
+                logger.debug("[M11] Vision Pipeline falhou (seguindo sem imagens): %s", e)
+
+            prompt = HYPOTHESIS_PROMPT.format(
+                client_name=client.name,
+                specialty=client.specialty or "odontologia",
+                top_performers=str(top_performers[:5])[:1500],
+                low_performers=str(low_performers[:3])[:800],
+                approved_roteiros=str(
+                    [
+                        {"hook": r.hook[:80], "feedback": r.human_feedback or ""}
+                        for r in roteiros[:5]
+                    ]
+                )[:1000],
+                patterns="\n".join(f"- {p}" for p in patterns)
+                or "Sem padrões identificados ainda (dados insuficientes)",
+                count=5,
+                visual_context=visual_context_text,
+                memory_context=memory["prompt_injection"],
             )
+
+            # Se ha imagens, usa ask_with_images; caso contrario, ask_claude padrao
+            if vision_ctx is not None and vision_ctx.has_images:
+                system = await self._get_system_prompt(db)
+                response = await self.claude.ask_with_images(
+                    message=prompt,
+                    images=vision_ctx.image_blocks,
+                    system=system,
+                )
+            else:
+                response = await self.ask_claude(
+                    message=prompt,
+                    db=db,
+                    client_slug=client.slug,
+                )
 
             parsed = await self.claude.extract_json(message=response["text"], model="fast")
             hypotheses = parsed.get("data", {})
@@ -171,7 +204,11 @@ class M11Hipoteses(BaseModule):
             await feedback_loop.record_decision(
                 module=self.code,
                 action="gerar_hipoteses",
-                input_data={"client": client.slug, "roteiros_analyzed": len(roteiros)},
+                input_data={
+                    "client": client.slug,
+                    "roteiros_analyzed": len(roteiros),
+                    "creatives_analyzed": vision_ctx.creatives_found if vision_ctx else 0,
+                },
                 output_data={"hypotheses_count": len(hypotheses.get("hypotheses", []))},
                 reasoning=memory["reasoning_context"],
                 client_slug=client.slug,

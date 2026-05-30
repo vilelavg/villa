@@ -151,6 +151,7 @@ class Client(Base):
     kommo_pipeline_id: Mapped[int | None] = mapped_column(Integer)
     meta_ad_account_id: Mapped[str | None] = mapped_column(String(50))
     google_ads_id: Mapped[str | None] = mapped_column(String(50))
+    drive_folder_id: Mapped[str | None] = mapped_column(String(100))  # Pasta de criativos no Drive (P1.B)
     inlead_form_id: Mapped[str | None] = mapped_column(String(100))
     whatsapp_number: Mapped[str | None] = mapped_column(String(20))
 
@@ -911,13 +912,6 @@ class CommandRequest(BaseModel):
     client_slug: str | None = Field(None, description="Slug do cliente (se específico)")
     module: ModuleCode | None = Field(None, description="Módulo específico (se conhecido)")
     urgent: bool = Field(False, description="Se deve priorizar processamento")
-    session_id: str | None = Field(
-        None,
-        description=(
-            "ID de sessao para Working Memory. Quando informado, o Villa "
-            "lembra das ultimas mensagens da mesma sessao."
-        ),
-    )
 
 
 class CommandResponse(BaseModel):
@@ -929,7 +923,6 @@ class CommandResponse(BaseModel):
     data: dict | None = None
     actions_taken: list[str] = []
     tokens_used: int | None = None
-    session_id: str | None = None
 
 
 class HealthResponse(BaseModel):
