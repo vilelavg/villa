@@ -116,6 +116,91 @@ class AnthropicClient:
             "stop_reason": response.stop_reason,
         }
 
+    async def ask_with_images(
+        self,
+        message: str,
+        images: list[dict],
+        system: str | None = None,
+        model: str = "primary",
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        conversation: list[dict] | None = None,
+    ) -> dict:
+        """
+        Envia mensagem com imagens ao Claude (Vision API).
+
+        Mesma assinatura do ask() + parametro images. Existe como metodo
+        paralelo (nao altera ask) para garantir zero regressao.
+
+        Args:
+            message: Texto da pergunta
+            images: Lista de dicts no formato:
+                [{"base64_data": "<b64>", "media_type": "image/jpeg"}, ...]
+                media_type aceito: image/jpeg, image/png, image/gif, image/webp
+            system: System prompt
+            model: "primary" (Sonnet) ou "fast" (Haiku) — ambos suportam vision
+            max_tokens: Limite de tokens na resposta
+            temperature: Criatividade (0.0 a 1.0)
+            conversation: Historico de mensagens [{role, content}]
+
+        Returns:
+            Mesma estrutura do ask(): text, model, tokens_input/output, cost_usd, etc.
+        """
+        start = time.time()
+
+        # Montar content blocks: imagens primeiro, texto depois (recomendado pela Anthropic)
+        content_blocks: list[dict] = []
+        for img in images:
+            content_blocks.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": img["media_type"],
+                    "data": img["base64_data"],
+                },
+            })
+        content_blocks.append({"type": "text", "text": message})
+
+        messages = []
+        if conversation:
+            messages.extend(conversation)
+        messages.append({"role": "user", "content": content_blocks})
+
+        kwargs = {
+            "model": self._get_model(model),
+            "max_tokens": max_tokens or settings.anthropic_max_tokens,
+            "messages": messages,
+        }
+        if system:
+            kwargs["system"] = system
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        else:
+            kwargs["temperature"] = settings.anthropic_temperature
+
+        response = await self._client.messages.create(**kwargs)
+        duration_ms = int((time.time() - start) * 1000)
+
+        text = ""
+        for block in response.content:
+            if block.type == "text":
+                text += block.text
+
+        tokens_in = response.usage.input_tokens
+        tokens_out = response.usage.output_tokens
+        cost = self._estimate_cost(self._get_model(model), tokens_in, tokens_out)
+
+        return {
+            "text": text,
+            "model": response.model,
+            "tokens_input": tokens_in,
+            "tokens_output": tokens_out,
+            "cost_usd": cost,
+            "duration_ms": duration_ms,
+            "stop_reason": response.stop_reason,
+            "images_sent": len(images),
+        }
+
     async def stream(
         self,
         message: str,
